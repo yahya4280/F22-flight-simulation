@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F-22 Flight Simulation</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #hud div { margin: 5px 0; }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            z-index: 20;
+        }
+        .control-button {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 18px;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        #joystick {
+            position: absolute;
+            bottom: 100px;
+            left: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            z-index: 20;
+        }
+        #joystick-handle {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            top: 30px;
+            left: 30px;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">
+        <div>Speed: <span id="speed">0</span> km/h</div>
+        <div>Altitude: <span id="altitude">0</span> m</div>
+        <div>Heading: <span id="heading">0</span>°</div>
+        <div>Ammo: <span id="ammo">100</span></div>
+        <div>Missiles: <span id="missiles">10</span></div>
+        <div>Weapon: <span id="weapon">Bullets</span></div>
+    </div>
+
+    <div id="controls">
+        <button class="control-button" id="fire-bullets">Fire</button>
+        <button class="control-button" id="fire-missiles">Missile</button>
+        <button class="control-button" id="switch-weapon">Weapon</button>
+        <button class="control-button" id="switch-view">View</button>
+    </div>
+
+    <div id="joystick">
+        <div id="joystick-handle"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const speedElement = document.getElementById("speed");
+        const altitudeElement = document.getElementById("altitude");
+        const headingElement = document.getElementById("heading");
+        const ammoElement = document.getElementById("ammo");
+        const missilesElement = document.getElementById("missiles");
+        const weaponElement = document.getElementById("weapon");
+
+        let jet, cockpitCamera;
+        const bullets = [];
+        const missilesArray = [];
+        let isCockpitView = false;
+        let weapon = "Bullets";
+        let ammo = 100, missiles = 10;
+
+        const loader = new THREE.GLTFLoader();
+        loader.load('/storage/emulated/0/Download/f22_raptor.glb', (gltf) => {
+            jet = gltf.scene;
+            jet.scale.set(10, 10, 10);
+            jet.position.set(0, 50, 0);
+
+            cockpitCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+            cockpitCamera.position.set(0, 10, 5);
+            jet.add(cockpitCamera);
+
+            scene.add(jet);
+        });
+
+        function fireBullet() {
+            if (ammo <= 0) return;
+            ammo--;
+            ammoElement.textContent = ammo;
+            const bullet = new THREE.Mesh(new THREE.SphereGeometry(2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            bullet.position.copy(jet.position);
+            bullet.velocity = new THREE.Vector3();
+            jet.getWorldDirection(bullet.velocity);
+            bullet.velocity.multiplyScalar(50);
+            scene.add(bullet);
+            bullets.push(bullet);
+        }
+
+        function fireMissile() {
+            if (missiles <= 0) return;
+            missiles--;
+            missilesElement.textContent = missiles;
+            const missile = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 10), new THREE.MeshBasicMaterial({ color: 0xffa500 }));
+            missile.position.copy(jet.position);
+            missile.velocity = new THREE.Vector3();
+            jet.getWorldDirection(missile.velocity);
+            missile.velocity.multiplyScalar(30);
+            scene.add(missile);
+            missilesArray.push(missile);
+        }
+
+        document.getElementById("fire-bullets").addEventListener("click", () => {
+            if (weapon === "Bullets") fireBullet();
+        });
+
+        document.getElementById("fire-missiles").addEventListener("click", () => {
+            if (weapon === "Missiles") fireMissile();
+        });
+
+        document.getElementById("switch-weapon").addEventListener("click", () => {
+            weapon = weapon === "Bullets" ? "Missiles" : "Bullets";
+            weaponElement.textContent = weapon;
+        });
+
+        document.getElementById("switch-view").addEventListener("click", () => {
+            isCockpitView = !isCockpitView;
+        });
+
+        const joystick = document.getElementById("joystick");
+        const joystickHandle = document.getElementById("joystick-handle");
+        let joystickActive = false;
+        let joystickOffset = { x: 0, y: 0 };
+
+        joystickHandle.addEventListener("touchstart", () => (joystickActive = true));
+        joystickHandle.addEventListener("touchend", () => {
+            joystickActive = false;
+            joystickOffset = { x: 0, y: 0 };
+            joystickHandle.style.transform = "translate(30px, 30px)";
+        });
+
+        joystickHandle.addEventListener("touchmove", (event) => {
+            if (!joystickActive) return;
+            const touch = event.touches[0];
+            const rect = joystick.getBoundingClientRect();
+            joystickOffset.x = Math.min(Math.max(touch.clientX - rect.left - 60, -60), 60);
+            joystickOffset.y = Math.min(Math.max(touch.clientY - rect.top - 60, -60), 60);
+            joystickHandle.style.transform = `translate(${joystickOffset.x + 30}px, ${joystickOffset.y + 30}px)`;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (jet) {
+                jet.rotation.x += joystickOffset.y * 0.0001;
+                jet.rotation.z += joystickOffset.x * 0.0001;
+
+                if (!isCockpitView) {
+                    camera.position.lerp(new THREE.Vector3(jet.position.x, jet.position.y + 20, jet.position.z + 50), 0.1);
+                    camera.lookAt(jet.position);
+                }
+            }
+
+            renderer.render(scene, isCockpitView ? cockpitCamera : camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
