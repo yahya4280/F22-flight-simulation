@@ -109,7 +109,7 @@
         let ammo = 100, missiles = 10;
 
         const loader = new THREE.GLTFLoader();
-        loader.load('/f22_raptor.glb', (gltf) => {
+        loader.load('f22_raptor.glb', (gltf) => {
             jet = gltf.scene;
             jet.scale.set(10, 10, 10);
             jet.position.set(0, 50, 0);
