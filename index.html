@@ -84,6 +84,7 @@
         const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
         terrain.rotation.x = -Math.PI / 2;
         terrain.receiveShadow = true;
+        terrain.isGround = true; // Mark as ground for collision detection
         scene.add(terrain);
 
         // Blue Sky
@@ -98,17 +99,23 @@
             building.position.set(x, height / 2, z);
             building.castShadow = true;
             building.receiveShadow = true;
+            building.isBuilding = true; // Mark as building for collision detection
             scene.add(building);
             buildings.push(building);
         }
 
         // Generate a grid of buildings
+        const buildingHeightRange = { min: 50, max: 250 };
         for (let i = -5000; i <= 5000; i += 200) {
             for (let j = -5000; j <= 5000; j += 200) {
-                const height = Math.random() * 200 + 50; // Random height between 50 and 250
+                const height = Math.random() * (buildingHeightRange.max - buildingHeightRange.min) + buildingHeightRange.min;
                 addBuilding(i, j, height);
             }
         }
+
+        // Spawn Point
+        const maxBuildingHeight = Math.max(...buildings.map(b => b.position.y + b.geometry.parameters.height / 2));
+        const spawnHeight = maxBuildingHeight + 100;
 
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
@@ -163,7 +170,7 @@
                     }
                 });
                 jet.scale.set(10, 10, 10);
-                jet.position.set(0, 50, 0);
+                jet.position.set(0, spawnHeight, 0);
                 jet.castShadow = true;
                 scene.add(jet);
             },
@@ -191,8 +198,6 @@
             if (!jet || isPaused) return;
             if (event.key === 'w') speed += 0.5; // Increase speed
             if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
-            if (event.key === 'a') jet.rotation.y += 0.07; // Smoother Rudder left
-            if (event.key === 'd') jet.rotation.y -= 0.07; // Smoother Rudder right
             if (event.key === '1') {
                 weapon = "Bullets";
                 weaponElement.textContent = weapon;
@@ -233,6 +238,26 @@
             projectiles.push(projectile);
         }
 
+        // Collision Detection
+        function detectCollisions() {
+            if (!jet) return;
+
+            const jetBox = new THREE.Box3().setFromObject(jet);
+
+            // Check collisions with ground
+            if (jetBox.intersectsBox(new THREE.Box3().setFromObject(terrain))) {
+                console.log("Collision with ground!");
+            }
+
+            // Check collisions with buildings
+            buildings.forEach((building) => {
+                const buildingBox = new THREE.Box3().setFromObject(building);
+                if (jetBox.intersectsBox(buildingBox)) {
+                    console.log("Collision with building!");
+                }
+            });
+        }
+
         // Animation and Rendering
         let lastTime = performance.now();
         function animate() {
@@ -244,8 +269,9 @@
             lastTime = currentTime;
 
             if (jet) {
+                // Control with mouse
                 jet.rotation.x += -mouseY * 0.02; // Pitch
-                jet.rotation.z += mouseX * 0.02; // Roll
+                jet.rotation.y += mouseX * 0.02; // Yaw
 
                 const direction = new THREE.Vector3();
                 jet.getWorldDirection(direction);
@@ -269,6 +295,9 @@
                 const screenPosition = crosshairPosition.project(camera);
                 crosshair.style.left = `${(screenPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
                 crosshair.style.top = `${(-screenPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
+
+                // Detect Collisions
+                detectCollisions();
             }
 
             // Fire projectiles
