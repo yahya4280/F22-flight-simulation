@@ -77,18 +77,21 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Infinite Ground
+        // Infinite Green Ground
         const textureLoader = new THREE.TextureLoader();
         const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
         grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-        grassTexture.repeat.set(1000, 1000);
-
+        grassTexture.repeat.set(500, 500); // Adjust for better appearance
+        
         const terrainMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
-        const terrainGeometry = new THREE.PlaneGeometry(5000, 5000);
+        const terrainGeometry = new THREE.PlaneGeometry(100000, 100000); // Make the ground extremely large
         const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
-        terrain.rotation.x = -Math.PI / 2;
+        terrain.rotation.x = -Math.PI / 2; // Rotate to lie flat
         terrain.receiveShadow = true;
         scene.add(terrain);
+        
+        // Blue Sky
+        scene.background = new THREE.Color(0x87CEEB); // Light blue color
 
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
