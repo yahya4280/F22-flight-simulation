@@ -31,6 +31,26 @@
             border-radius: 50%;
             z-index: 20;
         }
+        #settings-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 30;
+            display: none;
+        }
+        #settings-menu button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -41,6 +61,11 @@
         <div>G-Force: <span id="gForce">1</span> G</div>
     </div>
     <div id="crosshair"></div>
+    <div id="settings-menu">
+        <h2>Settings</h2>
+        <p>Game is Paused</p>
+        <button onclick="resumeGame()">Resume Game</button>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
@@ -52,23 +77,23 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Add Blue Sky
-        scene.background = new THREE.Color(0x87CEEB);
+        // Infinite Ground
+        const textureLoader = new THREE.TextureLoader();
+        const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
+        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(1000, 1000);
 
-        // Terrain
+        const terrainMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
         const terrainGeometry = new THREE.PlaneGeometry(5000, 5000);
-        const terrainMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
         const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
         terrain.rotation.x = -Math.PI / 2;
         terrain.receiveShadow = true;
         scene.add(terrain);
 
-        // Lighting (Sun and Shadows)
+        // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
         sun.castShadow = true;
-        sun.shadow.mapSize.width = 2048;
-        sun.shadow.mapSize.height = 2048;
         scene.add(sun);
 
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -77,31 +102,44 @@
         // HUD Elements
         const speedElement = document.getElementById("speed");
         const gForceElement = document.getElementById("gForce");
+        const weaponElement = document.getElementById("weapon");
 
-        // Camera Position
-        camera.position.set(0, 50, -200); // Start behind the jet
+        // Settings Menu
+        const settingsMenu = document.getElementById("settings-menu");
+        let isPaused = false;
 
-        // Load F-22 Raptor Model
+        function toggleSettingsMenu() {
+            isPaused = !isPaused;
+            settingsMenu.style.display = isPaused ? "block" : "none";
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            settingsMenu.style.display = "none";
+        }
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                toggleSettingsMenu();
+            }
+        });
+
+        // Load F-22 Model
         const loader = new THREE.GLTFLoader();
         let jet;
         loader.load(
             'f22_raptor.glb', // Replace with your model path
             function (gltf) {
                 jet = gltf.scene;
-
-                // Traverse model hierarchy to remove platform
                 jet.traverse((child) => {
                     if (child.isMesh && child.name.toLowerCase().includes('platform')) {
-                        console.log('Removing platform:', child.name);
-                        child.visible = false; // Hide the platform
+                        child.visible = false; // Hide platform
                     }
                 });
-
                 jet.scale.set(10, 10, 10);
                 jet.position.set(0, 50, 0);
                 jet.castShadow = true;
                 scene.add(jet);
-                console.log('Model loaded successfully!');
             },
             undefined,
             function (error) {
@@ -109,9 +147,11 @@
             }
         );
 
-        // Controls and Variables
-        let speed = 5; // Increased speed
+        // Variables
+        let speed = 5;
         let mouseX = 0, mouseY = 0;
+        let weapon = "Bullets"; // Current weapon
+        const projectiles = [];
         const screenCenterX = window.innerWidth / 2;
         const screenCenterY = window.innerHeight / 2;
 
@@ -121,62 +161,81 @@
         });
 
         window.addEventListener('keydown', (event) => {
+            if (!jet || isPaused) return;
             if (event.key === 'w') speed += 0.5; // Increase speed
             if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
+            if (event.key === 'a') jet.rotation.y += 0.05; // Rudder left
+            if (event.key === 'd') jet.rotation.y -= 0.05; // Rudder right
+            if (event.key === '1') {
+                weapon = "Bullets";
+                weaponElement.textContent = weapon;
+            }
+            if (event.key === '2') {
+                weapon = "Missiles";
+                weaponElement.textContent = weapon;
+            }
         });
 
-        // Calculate G-Force
-        let previousVelocity = new THREE.Vector3(0, 0, 0);
-        let currentVelocity = new THREE.Vector3(0, 0, 0);
+        // Firing Weapons
+        window.addEventListener('click', () => {
+            if (!jet || isPaused) return;
 
-        function calculateGForce(deltaTime) {
-            if (!jet) return 1; // Default G-force when stationary
+            const projectileGeometry = weapon === "Bullets"
+                ? new THREE.CylinderGeometry(0.5, 0.5, 5)
+                : new THREE.CylinderGeometry(1, 1, 10);
 
-            jet.getWorldDirection(currentVelocity);
-            currentVelocity.multiplyScalar(speed / deltaTime);
+            const projectileMaterial = new THREE.MeshBasicMaterial({
+                color: weapon === "Bullets" ? 0xff0000 : 0x00ff00,
+            });
 
-            const acceleration = currentVelocity.clone().sub(previousVelocity).length();
-            previousVelocity.copy(currentVelocity);
+            const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+            projectile.rotation.copy(jet.rotation);
+            projectile.position.copy(jet.position);
+            projectile.velocity = new THREE.Vector3();
+            jet.getWorldDirection(projectile.velocity);
+            projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Bullets are faster
+            scene.add(projectile);
+            projectiles.push(projectile);
+        });
 
-            const gForce = acceleration / 9.8; // Convert to G-forces
-            return Math.max(1, gForce.toFixed(2)); // Minimum G-force is 1
-        }
-
-        // Animate and Render
+        // Animation and Rendering
         let lastTime = performance.now();
         function animate() {
-            requestAnimationFrame(animate);
+            if (!isPaused) {
+                requestAnimationFrame(animate);
+                const currentTime = performance.now();
+                const deltaTime = (currentTime - lastTime) / 1000;
+                lastTime = currentTime;
 
-            const currentTime = performance.now();
-            const deltaTime = (currentTime - lastTime) / 1000; // Convert ms to seconds
-            lastTime = currentTime;
+                if (jet) {
+                    jet.rotation.x += -mouseY * 0.02; // Pitch
+                    jet.rotation.z += mouseX * 0.02; // Roll
 
-            // Move Jet
-            if (jet) {
-                jet.rotation.x += -mouseY * 0.02; // Pitch
-                jet.rotation.z += mouseX * 0.02; // Roll
-                jet.rotation.y += mouseX * 0.01; // Yaw for smoother turns
+                    const direction = new THREE.Vector3();
+                    jet.getWorldDirection(direction);
+                    jet.position.addScaledVector(direction, speed);
 
-                const direction = new THREE.Vector3();
-                jet.getWorldDirection(direction);
-                jet.position.addScaledVector(direction, speed);
+                    // Camera follows jet
+                    const offset = new THREE.Vector3(0, 20, -100);
+                    offset.applyQuaternion(jet.quaternion);
+                    const cameraPosition = jet.position.clone().add(offset);
+                    camera.position.lerp(cameraPosition, 0.1);
+                    camera.lookAt(jet.position);
 
-                // Calculate camera position behind the jet
-                const offset = new THREE.Vector3(0, 20, -100); // Adjust offset as needed
-                offset.applyQuaternion(jet.quaternion); // Rotate offset relative to the jet's orientation
-                const cameraPosition = jet.position.clone().add(offset);
+                    speedElement.textContent = (speed * 50).toFixed(0);
+                }
 
-                // Smoothly move the camera to the calculated position
-                camera.position.lerp(cameraPosition, 0.1);
-                camera.lookAt(jet.position);
+                // Move Projectiles
+                projectiles.forEach((projectile, index) => {
+                    projectile.position.add(projectile.velocity);
+                    if (projectile.position.length() > 5000) {
+                        scene.remove(projectile);
+                        projectiles.splice(index, 1);
+                    }
+                });
 
-                // Update HUD
-                const gForce = calculateGForce(deltaTime);
-                gForceElement.textContent = gForce;
-                speedElement.textContent = (speed * 50).toFixed(0); // Scaled speed
+                renderer.render(scene, camera);
             }
-
-            renderer.render(scene, camera);
         }
 
         animate();
