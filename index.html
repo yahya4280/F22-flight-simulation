@@ -40,7 +40,6 @@
     </div>
     <div id="crosshair"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Scene, Camera, Renderer
         const scene = new THREE.Scene();
@@ -49,6 +48,13 @@
         renderer.shadowMap.enabled = true;
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
+
+        // Debugging Helpers
+        const gridHelper = new THREE.GridHelper(10000, 50);
+        scene.add(gridHelper);
+
+        const axesHelper = new THREE.AxesHelper(500);
+        scene.add(axesHelper);
 
         // Ground Setup
         const textureLoader = new THREE.TextureLoader();
@@ -63,7 +69,7 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Lighting Setup
+        // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
         sun.castShadow = true;
@@ -93,15 +99,20 @@
             undefined,
             function (error) {
                 console.error("Error loading jet model:", error);
+                // Add a placeholder geometry for testing if model loading fails
+                const placeholder = new THREE.Mesh(
+                    new THREE.CylinderGeometry(50, 50, 200),
+                    new THREE.MeshLambertMaterial({ color: 0xff0000 })
+                );
+                placeholder.position.set(0, 2000, 0);
+                scene.add(placeholder);
+                jet = placeholder;
             }
         );
 
         // Variables
         let speed = 5;
         let mouseX = 0, mouseY = 0;
-        let weapon = "Bullets";
-        let isFiring = false;
-        const projectiles = [];
 
         window.addEventListener('mousemove', (event) => {
             mouseX = -(event.clientX / window.innerWidth - 0.5); // Inverted yaw
@@ -112,40 +123,7 @@
             if (!jet) return;
             if (event.key === 'w') speed += 0.5; // Increase speed
             if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
-            if (event.key === '1') weapon = "Bullets";
-            if (event.key === '2') weapon = "Missiles";
-            weaponElement.textContent = weapon;
         });
-
-        window.addEventListener('mousedown', () => {
-            isFiring = true;
-        });
-
-        window.addEventListener('mouseup', () => {
-            isFiring = false;
-        });
-
-        // Fire Projectiles
-        function fireProjectile() {
-            if (!jet || !isFiring) return;
-
-            const projectileGeometry = weapon === "Bullets"
-                ? new THREE.SphereGeometry(1)
-                : new THREE.CylinderGeometry(1, 1, 10);
-
-            const projectileMaterial = new THREE.MeshBasicMaterial({
-                color: weapon === "Bullets" ? 0xff0000 : 0x00ff00,
-            });
-
-            const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
-            projectile.position.copy(jet.position);
-            projectile.rotation.copy(jet.rotation);
-            projectile.velocity = new THREE.Vector3();
-            jet.getWorldDirection(projectile.velocity);
-            projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Speed
-            scene.add(projectile);
-            projectiles.push(projectile);
-        }
 
         // Animation Loop
         function animate() {
@@ -164,15 +142,6 @@
                 speedElement.textContent = (speed * 50).toFixed(0);
                 altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
             }
-
-            // Move projectiles
-            projectiles.forEach((projectile, index) => {
-                projectile.position.add(projectile.velocity);
-                if (projectile.position.length() > 5000) {
-                    scene.remove(projectile);
-                    projectiles.splice(index, 1);
-                }
-            });
 
             renderer.render(scene, camera);
         }
