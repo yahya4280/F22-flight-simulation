@@ -22,10 +22,13 @@
         #hud div { margin: 5px 0; }
         #crosshair {
             position: absolute;
-            width: 2px;
-            height: 2px;
+            width: 10px;
+            height: 10px;
             z-index: 20;
             background: red;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
         }
     </style>
 </head>
@@ -47,11 +50,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Axes Helper for Debugging
-        const axesHelper = new THREE.AxesHelper(500);
-        scene.add(axesHelper);
-
-        // Green Ground
+        // Ground Setup
         const textureLoader = new THREE.TextureLoader();
         const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
         grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
@@ -85,9 +84,6 @@
             }
         }
 
-        // Calculate Tallest Building
-        const maxBuildingHeight = Math.max(...buildings.map(b => b.geometry.parameters.height));
-
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
@@ -110,7 +106,7 @@
             function (gltf) {
                 jet = gltf.scene;
                 jet.scale.set(10, 10, 10);
-                jet.position.set(0, maxBuildingHeight + 200, 0); // Spawn safely above buildings
+                jet.position.set(0, 2000, 0); // Spawn at 2000 meters altitude
                 scene.add(jet);
 
                 console.log("Jet loaded successfully.");
@@ -210,42 +206,38 @@
 
         // Animation Loop
         function animate() {
-            try {
-                requestAnimationFrame(animate);
+            requestAnimationFrame(animate);
 
-                if (jet) {
-                    // Mouse controls
-                    jet.rotation.x += mouseY * 0.02; // Pitch
-                    jet.rotation.y += mouseX * 0.02; // Yaw
+            if (jet) {
+                // Mouse controls
+                jet.rotation.x += mouseY * 0.02; // Pitch
+                jet.rotation.y += mouseX * 0.02; // Yaw
 
-                    const direction = new THREE.Vector3();
-                    jet.getWorldDirection(direction);
-                    jet.position.addScaledVector(direction, speed);
+                const direction = new THREE.Vector3();
+                jet.getWorldDirection(direction);
+                jet.position.addScaledVector(direction, speed);
 
-                    // Update HUD
-                    speedElement.textContent = (speed * 50).toFixed(0);
-                    altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
+                // Update HUD
+                speedElement.textContent = (speed * 50).toFixed(0);
+                altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
 
-                    // Detect collisions
-                    detectCollisions();
-                }
-
-                // Fire projectiles
-                fireProjectile();
-
-                // Move projectiles
-                projectiles.forEach((projectile, index) => {
-                    projectile.position.add(projectile.velocity);
-                    if (projectile.position.length() > 5000) {
-                        scene.remove(projectile);
-                        projectiles.splice(index, 1);
-                    }
-                });
-
-                renderer.render(scene, camera);
-            } catch (error) {
-                console.error("Animation loop error:", error);
+                // Detect collisions
+                detectCollisions();
             }
+
+            // Fire projectiles
+            fireProjectile();
+
+            // Move projectiles
+            projectiles.forEach((projectile, index) => {
+                projectile.position.add(projectile.velocity);
+                if (projectile.position.length() > 5000) {
+                    scene.remove(projectile);
+                    projectiles.splice(index, 1);
+                }
+            });
+
+            renderer.render(scene, camera);
         }
 
         animate();
