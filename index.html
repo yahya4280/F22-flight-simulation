@@ -81,6 +81,23 @@
             }
         }
 
+        // Lighting
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(100, 500, 100);
+        sun.castShadow = true;
+        scene.add(sun);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        // HUD Elements
+        const speedElement = document.getElementById("speed");
+        const altitudeElement = document.getElementById("altitude");
+        const weaponElement = document.getElementById("weapon");
+
+        // Crosshair
+        const crosshair = document.getElementById("crosshair");
+
         // Load Jet Model
         const loader = new THREE.GLTFLoader();
         let jet;
@@ -99,19 +116,138 @@
             }
         );
 
+        // Variables
+        let speed = 5;
+        let mouseX = 0, mouseY = 0;
+        let weapon = "Bullets";
+        let isFiring = false;
+        let lastMissileTime = 0;
+        const missileCooldown = 2000; // 2 seconds cooldown
+        const projectiles = [];
+
+        window.addEventListener('mousemove', (event) => {
+            mouseX = -(event.clientX / window.innerWidth - 0.5); // Inverted yaw
+            mouseY = -(event.clientY / window.innerHeight - 0.5); // Inverted pitch
+        });
+
+        window.addEventListener('keydown', (event) => {
+            if (!jet) return;
+            if (event.key === 'w') speed += 0.5; // Increase speed
+            if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
+            if (event.key === '1') {
+                weapon = "Bullets";
+                weaponElement.textContent = weapon;
+            }
+            if (event.key === '2') {
+                weapon = "Missiles";
+                weaponElement.textContent = weapon;
+            }
+        });
+
+        window.addEventListener('mousedown', () => {
+            isFiring = true;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isFiring = false;
+        });
+
+        // Fire Projectiles
+        function fireProjectile() {
+            if (!jet || !isFiring) return;
+
+            if (weapon === "Missiles") {
+                const now = performance.now();
+                if (now - lastMissileTime < missileCooldown) return; // Cooldown logic
+                lastMissileTime = now;
+            }
+
+            const projectileGeometry = weapon === "Bullets"
+                ? new THREE.CylinderGeometry(0.5, 0.5, 5)
+                : new THREE.CylinderGeometry(1, 1, 10);
+
+            const projectileMaterial = new THREE.MeshBasicMaterial({
+                color: weapon === "Bullets" ? 0xff0000 : 0x00ff00,
+            });
+
+            const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+            projectile.rotation.copy(jet.rotation);
+            projectile.position.copy(jet.position);
+            projectile.velocity = new THREE.Vector3();
+            jet.getWorldDirection(projectile.velocity);
+            projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Bullets are faster
+            scene.add(projectile);
+            projectiles.push(projectile);
+        }
+
+        // Detect Collisions
+        function detectCollisions() {
+            if (!jet) return;
+
+            const jetBox = new THREE.Box3().setFromObject(jet);
+
+            // Ground collision
+            const groundBox = new THREE.Box3().setFromObject(ground);
+            if (jetBox.intersectsBox(groundBox)) {
+                console.log("Collision with ground!");
+                jet.position.y += 10; // Move jet upward
+            }
+
+            // Building collisions
+            buildings.forEach((building) => {
+                const buildingBox = new THREE.Box3().setFromObject(building);
+                if (jetBox.intersectsBox(buildingBox)) {
+                    console.log("Collision with building!");
+                    jet.position.y += 10; // Move jet upward
+                }
+            });
+        }
+
         // Animation Loop
         function animate() {
             try {
                 requestAnimationFrame(animate);
 
                 if (jet) {
-                    // Movement logic
-                    console.log("Jet position:", jet.position);
+                    // Mouse controls
+                    jet.rotation.x += mouseY * 0.02; // Pitch
+                    jet.rotation.y += mouseX * 0.02; // Yaw
+
+                    const direction = new THREE.Vector3();
+                    jet.getWorldDirection(direction);
+                    jet.position.addScaledVector(direction, speed);
+
+                    // Update HUD
+                    speedElement.textContent = (speed * 50).toFixed(0);
+                    altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
+
+                    // Update Crosshair
+                    const crosshairPosition = new THREE.Vector3();
+                    jet.getWorldDirection(crosshairPosition);
+                    crosshairPosition.multiplyScalar(100).add(jet.position);
+                    const screenPosition = crosshairPosition.project(camera);
+                    crosshair.style.left = `${(screenPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
+                    crosshair.style.top = `${(-screenPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
+
+                    // Detect collisions
+                    detectCollisions();
                 }
 
+                // Fire projectiles
+                fireProjectile();
+
+                // Move projectiles
+                projectiles.forEach((projectile, index) => {
+                    projectile.position.add(projectile.velocity);
+                    if (projectile.position.length() > 5000) {
+                        scene.remove(projectile);
+                        projectiles.splice(index, 1);
+                    }
+                });
+
                 renderer.render(scene, camera);
-            } catch (err) {
-                console.error("Animation error:", err);
+            } catch (error) {
+                console.error("Animation loop error:", error);
             }
         }
 
