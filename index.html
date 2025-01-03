@@ -38,6 +38,7 @@
         <div>Speed: <span id="speed">250</span> km/h</div>
         <div>Altitude: <span id="altitude">500</span> m</div>
         <div>Weapon: <span id="weapon">Bullets</span></div>
+        <div>G-Force: <span id="gForce">1</span> G</div>
     </div>
     <div id="crosshair"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -50,6 +51,9 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // HUD Elements
+        const gForceElement = document.getElementById("gForce");
+
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
         scene.add(ambientLight);
@@ -60,7 +64,6 @@
 
         // Camera Position
         camera.position.set(0, 100, 300);
-        camera.lookAt(0, 50, 0);
 
         // Add City Buildings
         const buildings = [];
@@ -91,6 +94,7 @@
                 jet.scale.set(10, 10, 10);
                 jet.position.set(0, 50, 0);
                 scene.add(jet);
+                console.log('Model loaded successfully!');
             },
             undefined,
             function (error) {
@@ -124,9 +128,31 @@
             bullets.push(bullet);
         });
 
+        // Calculate G-Force
+        let previousVelocity = new THREE.Vector3(0, 0, 0);
+        let currentVelocity = new THREE.Vector3(0, 0, 0);
+
+        function calculateGForce(deltaTime) {
+            if (!jet) return 1; // Default G-force when stationary
+
+            jet.getWorldDirection(currentVelocity);
+            currentVelocity.multiplyScalar(2 / deltaTime);
+
+            const acceleration = currentVelocity.clone().sub(previousVelocity).length();
+            previousVelocity.copy(currentVelocity);
+
+            const gForce = acceleration / 9.8; // Convert to G-forces
+            return Math.max(1, gForce.toFixed(2)); // Minimum G-force is 1
+        }
+
         // Animate and Render
+        let lastTime = performance.now();
         function animate() {
             requestAnimationFrame(animate);
+
+            const currentTime = performance.now();
+            const deltaTime = (currentTime - lastTime) / 1000; // Convert ms to seconds
+            lastTime = currentTime;
 
             // Move Jet
             if (jet) {
@@ -136,6 +162,17 @@
                 const direction = new THREE.Vector3();
                 jet.getWorldDirection(direction);
                 jet.position.addScaledVector(direction, 2);
+
+                // Camera follows the jet
+                camera.position.lerp(
+                    new THREE.Vector3(jet.position.x, jet.position.y + 50, jet.position.z + 150),
+                    0.1
+                );
+                camera.lookAt(jet.position);
+
+                // Update G-Force Indicator
+                const gForce = calculateGForce(deltaTime);
+                gForceElement.textContent = gForce;
             }
 
             // Move Bullets and Check for Collisions
