@@ -49,13 +49,8 @@
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        // Ground
-        const textureLoader = new THREE.TextureLoader();
-        const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
-        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-        grassTexture.repeat.set(1000, 1000);
-
-        const groundMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
+        // Infinite Green Ground
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 }); // Solid green color
         const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
@@ -156,9 +151,9 @@
             if (aircraft) {
                 camera.position.lerp(
                     new THREE.Vector3(
-                        aircraft.position.x,
-                        aircraft.position.y + 50,
-                        aircraft.position.z + 200
+                        aircraft.position.x - 200 * Math.sin(heading * (Math.PI / 180)), // Slightly behind
+                        aircraft.position.y + 50, // Above
+                        aircraft.position.z - 200 * Math.cos(heading * (Math.PI / 180)) // Behind
                     ),
                     0.1
                 );
