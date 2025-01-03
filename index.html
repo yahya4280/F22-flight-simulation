@@ -47,6 +47,10 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // Axes Helper for Debugging
+        const axesHelper = new THREE.AxesHelper(500);
+        scene.add(axesHelper);
+
         // Green Ground
         const textureLoader = new THREE.TextureLoader();
         const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
@@ -81,6 +85,9 @@
             }
         }
 
+        // Calculate Tallest Building
+        const maxBuildingHeight = Math.max(...buildings.map(b => b.geometry.parameters.height));
+
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
@@ -95,9 +102,6 @@
         const altitudeElement = document.getElementById("altitude");
         const weaponElement = document.getElementById("weapon");
 
-        // Crosshair
-        const crosshair = document.getElementById("crosshair");
-
         // Load Jet Model
         const loader = new THREE.GLTFLoader();
         let jet;
@@ -106,9 +110,9 @@
             function (gltf) {
                 jet = gltf.scene;
                 jet.scale.set(10, 10, 10);
-                const maxBuildingHeight = Math.max(...buildings.map(b => b.geometry.parameters.height));
-                jet.position.set(0, maxBuildingHeight + 200, 0); // Safely spawn above buildings
+                jet.position.set(0, maxBuildingHeight + 200, 0); // Spawn safely above buildings
                 scene.add(jet);
+
                 console.log("Jet loaded successfully.");
             },
             undefined,
@@ -221,14 +225,6 @@
                     // Update HUD
                     speedElement.textContent = (speed * 50).toFixed(0);
                     altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
-
-                    // Update Crosshair
-                    const crosshairPosition = new THREE.Vector3();
-                    jet.getWorldDirection(crosshairPosition);
-                    crosshairPosition.multiplyScalar(100).add(jet.position);
-                    const screenPosition = crosshairPosition.project(camera);
-                    crosshair.style.left = `${(screenPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
-                    crosshair.style.top = `${(-screenPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
 
                     // Detect collisions
                     detectCollisions();
