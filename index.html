@@ -88,6 +88,15 @@
             'f22_raptor.glb', // Replace with your model path
             function (gltf) {
                 jet = gltf.scene;
+
+                // Traverse model hierarchy to remove platform
+                jet.traverse((child) => {
+                    if (child.isMesh && child.name.toLowerCase().includes('platform')) {
+                        console.log('Removing platform:', child.name);
+                        child.visible = false; // Hide the platform
+                    }
+                });
+
                 jet.scale.set(10, 10, 10);
                 jet.position.set(0, 50, 0);
                 jet.castShadow = true;
@@ -152,11 +161,13 @@
                 jet.getWorldDirection(direction);
                 jet.position.addScaledVector(direction, speed);
 
-                // Camera follows the jet
-                camera.position.lerp(
-                    new THREE.Vector3(jet.position.x, jet.position.y + 20, jet.position.z - 150),
-                    0.1
-                );
+                // Calculate camera position behind the jet
+                const offset = new THREE.Vector3(0, 20, -100); // Adjust offset as needed
+                offset.applyQuaternion(jet.quaternion); // Rotate offset relative to the jet's orientation
+                const cameraPosition = jet.position.clone().add(offset);
+
+                // Smoothly move the camera to the calculated position
+                camera.position.lerp(cameraPosition, 0.1);
                 camera.lookAt(jet.position);
 
                 // Update HUD
