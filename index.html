@@ -105,8 +105,6 @@
         let yaw = 0; // Left/right turning
         let weapon = "Bullets";
         let isFiring = false;
-        let lastMissileTime = 0;
-        const missileCooldown = 2000; // 2 seconds cooldown
         const projectiles = [];
 
         const speedElement = document.getElementById("speed");
@@ -144,12 +142,6 @@
         function fireProjectile() {
             if (!aircraft || !isFiring) return;
 
-            if (weapon === "Missiles") {
-                const now = performance.now();
-                if (now - lastMissileTime < missileCooldown) return; // Cooldown
-                lastMissileTime = now;
-            }
-
             const projectileGeometry = weapon === "Bullets"
                 ? new THREE.SphereGeometry(2)
                 : new THREE.CylinderGeometry(1, 1, 10);
@@ -176,7 +168,7 @@
             if (!aircraft) return;
 
             pitch = mouseY * 0.05; // Up/down
-            yaw = mouseX * 0.05; // Left/right
+            yaw = mouseX * 0.05; // Left/right turn
             roll = mouseX * 0.05; // Roll based on horizontal input
 
             aircraft.rotation.x += pitch;
@@ -216,9 +208,10 @@
             animateProjectiles();
 
             if (aircraft) {
+                // Camera position slightly above and behind the aircraft
                 camera.position.set(
                     aircraft.position.x - 200 * Math.sin(heading * (Math.PI / 180)),
-                    aircraft.position.y + 50,
+                    aircraft.position.y + 100,
                     aircraft.position.z - 200 * Math.cos(heading * (Math.PI / 180))
                 );
                 camera.lookAt(aircraft.position);
