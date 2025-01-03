@@ -63,27 +63,6 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Infinite Buildings
-        const buildings = [];
-        function addBuilding(x, z, height) {
-            const buildingGeometry = new THREE.BoxGeometry(50, height, 50);
-            const buildingMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
-            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
-            building.position.set(x, height / 2, z);
-            building.castShadow = true;
-            building.receiveShadow = true;
-            scene.add(building);
-            buildings.push(building);
-        }
-
-        // Generate a grid of buildings
-        for (let i = -5000; i <= 5000; i += 200) {
-            for (let j = -5000; j <= 5000; j += 200) {
-                const height = Math.random() * 200 + 50;
-                addBuilding(i, j, height);
-            }
-        }
-
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
@@ -181,29 +160,6 @@
             projectiles.push(projectile);
         }
 
-        // Detect Collisions
-        function detectCollisions() {
-            if (!jet) return;
-
-            const jetBox = new THREE.Box3().setFromObject(jet);
-
-            // Ground collision
-            const groundBox = new THREE.Box3().setFromObject(ground);
-            if (jetBox.intersectsBox(groundBox)) {
-                console.log("Collision with ground!");
-                jet.position.y += 10; // Move jet upward
-            }
-
-            // Building collisions
-            buildings.forEach((building) => {
-                const buildingBox = new THREE.Box3().setFromObject(building);
-                if (jetBox.intersectsBox(buildingBox)) {
-                    console.log("Collision with building!");
-                    jet.position.y += 10; // Move jet upward
-                }
-            });
-        }
-
         // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
@@ -220,9 +176,6 @@
                 // Update HUD
                 speedElement.textContent = (speed * 50).toFixed(0);
                 altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
-
-                // Detect collisions
-                detectCollisions();
             }
 
             // Fire projectiles
