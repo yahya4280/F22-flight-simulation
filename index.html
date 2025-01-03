@@ -35,7 +35,7 @@
 <body>
     <div id="hud">
         <div>Speed: <span id="speed">500</span> km/h</div>
-        <div>Altitude: <span id="altitude">500</span> m</div>
+        <div>Altitude: <span id="altitude">2000</span> m</div>
         <div>Weapon: <span id="weapon">Bullets</span></div>
     </div>
     <div id="crosshair"></div>
@@ -63,7 +63,7 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Lighting
+        // Lighting Setup
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
         sun.castShadow = true;
@@ -101,8 +101,6 @@
         let mouseX = 0, mouseY = 0;
         let weapon = "Bullets";
         let isFiring = false;
-        let lastMissileTime = 0;
-        const missileCooldown = 2000; // 2 seconds cooldown
         const projectiles = [];
 
         window.addEventListener('mousemove', (event) => {
@@ -114,14 +112,9 @@
             if (!jet) return;
             if (event.key === 'w') speed += 0.5; // Increase speed
             if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
-            if (event.key === '1') {
-                weapon = "Bullets";
-                weaponElement.textContent = weapon;
-            }
-            if (event.key === '2') {
-                weapon = "Missiles";
-                weaponElement.textContent = weapon;
-            }
+            if (event.key === '1') weapon = "Bullets";
+            if (event.key === '2') weapon = "Missiles";
+            weaponElement.textContent = weapon;
         });
 
         window.addEventListener('mousedown', () => {
@@ -136,14 +129,8 @@
         function fireProjectile() {
             if (!jet || !isFiring) return;
 
-            if (weapon === "Missiles") {
-                const now = performance.now();
-                if (now - lastMissileTime < missileCooldown) return; // Cooldown logic
-                lastMissileTime = now;
-            }
-
             const projectileGeometry = weapon === "Bullets"
-                ? new THREE.CylinderGeometry(0.5, 0.5, 5)
+                ? new THREE.SphereGeometry(1)
                 : new THREE.CylinderGeometry(1, 1, 10);
 
             const projectileMaterial = new THREE.MeshBasicMaterial({
@@ -151,11 +138,11 @@
             });
 
             const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
-            projectile.rotation.copy(jet.rotation);
             projectile.position.copy(jet.position);
+            projectile.rotation.copy(jet.rotation);
             projectile.velocity = new THREE.Vector3();
             jet.getWorldDirection(projectile.velocity);
-            projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Bullets are faster
+            projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Speed
             scene.add(projectile);
             projectiles.push(projectile);
         }
@@ -177,9 +164,6 @@
                 speedElement.textContent = (speed * 50).toFixed(0);
                 altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
             }
-
-            // Fire projectiles
-            fireProjectile();
 
             // Move projectiles
             projectiles.forEach((projectile, index) => {
