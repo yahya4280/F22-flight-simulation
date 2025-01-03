@@ -20,6 +20,18 @@
             border-radius: 8px;
         }
         #hud div { margin: 5px 0; }
+        #crosshair {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: red;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 20;
+        }
     </style>
 </head>
 <body>
@@ -27,8 +39,9 @@
         <div>Speed: <span id="speed">250</span> knots</div>
         <div>Altitude: <span id="altitude">3000</span> ft</div>
         <div>Heading: <span id="heading">0</span>°</div>
-        <div>Thrust: <span id="thrust">50</span>%</div>
+        <div>Weapon: <span id="weapon">Bullets</span></div>
     </div>
+    <div id="crosshair"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
@@ -50,7 +63,7 @@
         scene.add(ambientLight);
 
         // Infinite Green Ground
-        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 }); // Solid green color
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 }); // Solid green
         const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
@@ -71,7 +84,7 @@
             function (gltf) {
                 aircraft = gltf.scene;
                 aircraft.scale.set(10, 10, 10);
-                aircraft.position.set(0, 3000, 0); // Start at 3000 ft altitude
+                aircraft.position.set(0, 3000, 0); // Spawn at altitude
                 scene.add(aircraft);
 
                 console.log("Aircraft loaded successfully.");
@@ -90,75 +103,128 @@
         let pitch = 0; // Nose up/down
         let roll = 0; // Bank angle
         let yaw = 0; // Left/right turning
+        let weapon = "Bullets";
+        let isFiring = false;
+        let lastMissileTime = 0;
+        const missileCooldown = 2000; // 2 seconds cooldown
+        const projectiles = [];
 
         const speedElement = document.getElementById("speed");
         const altitudeElement = document.getElementById("altitude");
         const headingElement = document.getElementById("heading");
-        const thrustElement = document.getElementById("thrust");
+        const weaponElement = document.getElementById("weapon");
 
-        // Controls
-        window.addEventListener('keydown', (event) => {
-            if (!aircraft) return;
-
-            switch (event.key) {
-                case 'w': thrust = Math.min(100, thrust + 5); break; // Increase thrust
-                case 's': thrust = Math.max(0, thrust - 5); break; // Decrease thrust
-                case 'ArrowUp': pitch -= 0.01; break; // Nose down
-                case 'ArrowDown': pitch += 0.01; break; // Nose up
-                case 'ArrowLeft': roll -= 0.01; break; // Bank left
-                case 'ArrowRight': roll += 0.01; break; // Bank right
-                case 'a': yaw -= 0.01; break; // Turn left
-                case 'd': yaw += 0.01; break; // Turn right
-            }
-            thrustElement.textContent = thrust;
+        // Mouse Controls
+        let mouseX = 0, mouseY = 0;
+        window.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth - 0.5) * 2; // X-axis -1 to 1
+            mouseY = -(event.clientY / window.innerHeight - 0.5) * 2; // Y-axis -1 to 1
         });
 
-        // Physics and Movement
+        // Keyboard Controls
+        window.addEventListener('keydown', (event) => {
+            if (!aircraft) return;
+            switch (event.key) {
+                case 'w': thrust = Math.min(100, thrust + 5); break;
+                case 's': thrust = Math.max(0, thrust - 5); break;
+                case '1': weapon = "Bullets"; break;
+                case '2': weapon = "Missiles"; break;
+            }
+            weaponElement.textContent = weapon;
+        });
+
+        // Fire Projectiles
+        window.addEventListener('mousedown', () => {
+            isFiring = true;
+        });
+        window.addEventListener('mouseup', () => {
+            isFiring = false;
+        });
+
+        function fireProjectile() {
+            if (!aircraft || !isFiring) return;
+
+            if (weapon === "Missiles") {
+                const now = performance.now();
+                if (now - lastMissileTime < missileCooldown) return; // Cooldown
+                lastMissileTime = now;
+            }
+
+            const projectileGeometry = weapon === "Bullets"
+                ? new THREE.SphereGeometry(2)
+                : new THREE.CylinderGeometry(1, 1, 10);
+
+            const projectileMaterial = new THREE.MeshBasicMaterial({
+                color: weapon === "Bullets" ? 0xff0000 : 0x00ff00,
+            });
+
+            const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+            projectile.position.copy(aircraft.position);
+            projectile.rotation.copy(aircraft.rotation);
+
+            const velocity = new THREE.Vector3();
+            aircraft.getWorldDirection(velocity);
+            velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Speed
+            projectile.velocity = velocity;
+
+            scene.add(projectile);
+            projectiles.push(projectile);
+        }
+
+        // Update Aircraft Movement
         function updateAircraft() {
             if (!aircraft) return;
 
-            // Apply pitch, roll, and yaw
-            aircraft.rotation.x = pitch;
+            pitch = mouseY * 0.05; // Up/down
+            yaw = mouseX * 0.05; // Left/right
+            roll = mouseX * 0.05; // Roll based on horizontal input
+
+            aircraft.rotation.x += pitch;
             aircraft.rotation.z = roll;
-            aircraft.rotation.y += yaw * 0.01; // Adjust heading gradually
+            aircraft.rotation.y += yaw * 0.1; // Adjust heading
 
-            // Update speed and altitude
-            speed = thrust * 2.5; // Simplified relationship
-            altitude += speed * Math.sin(pitch) * 0.01; // Simulated lift
-            altitude = Math.max(0, altitude); // Prevent negative altitude
+            speed = thrust * 2.5;
+            altitude += speed * Math.sin(pitch) * 0.1;
+            altitude = Math.max(0, altitude);
 
-            // Update HUD
             speedElement.textContent = Math.round(speed);
             altitudeElement.textContent = Math.round(altitude);
             heading = (heading + yaw * 5) % 360;
             headingElement.textContent = Math.round(heading < 0 ? heading + 360 : heading);
 
-            // Move aircraft forward
             const direction = new THREE.Vector3();
             aircraft.getWorldDirection(direction);
             aircraft.position.addScaledVector(direction, speed * 0.01);
         }
 
+        // Animate Projectiles
+        function animateProjectiles() {
+            projectiles.forEach((projectile, index) => {
+                projectile.position.add(projectile.velocity);
+                if (projectile.position.length() > 5000) {
+                    scene.remove(projectile);
+                    projectiles.splice(index, 1);
+                }
+            });
+        }
+
         // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
-
             updateAircraft();
+            fireProjectile();
+            animateProjectiles();
 
-            renderer.render(scene, camera);
-
-            // Follow the aircraft
             if (aircraft) {
-                camera.position.lerp(
-                    new THREE.Vector3(
-                        aircraft.position.x - 200 * Math.sin(heading * (Math.PI / 180)), // Slightly behind
-                        aircraft.position.y + 50, // Above
-                        aircraft.position.z - 200 * Math.cos(heading * (Math.PI / 180)) // Behind
-                    ),
-                    0.1
+                camera.position.set(
+                    aircraft.position.x - 200 * Math.sin(heading * (Math.PI / 180)),
+                    aircraft.position.y + 50,
+                    aircraft.position.z - 200 * Math.cos(heading * (Math.PI / 180))
                 );
                 camera.lookAt(aircraft.position);
             }
+
+            renderer.render(scene, camera);
         }
 
         animate();
