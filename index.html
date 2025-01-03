@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F-22 Flight Simulation</title>
+    <title>Flight Simulator</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -20,54 +20,25 @@
             border-radius: 8px;
         }
         #hud div { margin: 5px 0; }
-        #crosshair {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            z-index: 20;
-            background: red;
-            border: 2px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-        }
     </style>
 </head>
 <body>
     <div id="hud">
-        <div>Speed: <span id="speed">500</span> km/h</div>
-        <div>Altitude: <span id="altitude">2000</span> m</div>
-        <div>Weapon: <span id="weapon">Bullets</span></div>
+        <div>Speed: <span id="speed">250</span> knots</div>
+        <div>Altitude: <span id="altitude">3000</span> ft</div>
+        <div>Heading: <span id="heading">0</span>°</div>
+        <div>Thrust: <span id="thrust">50</span>%</div>
     </div>
-    <div id="crosshair"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Scene, Camera, Renderer
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.shadowMap.enabled = true;
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-
-        // Debugging Helpers
-        const gridHelper = new THREE.GridHelper(10000, 50);
-        scene.add(gridHelper);
-
-        const axesHelper = new THREE.AxesHelper(500);
-        scene.add(axesHelper);
-
-        // Ground Setup
-        const textureLoader = new THREE.TextureLoader();
-        const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
-        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-        grassTexture.repeat.set(1000, 1000);
-
-        const groundMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
-        const groundGeometry = new THREE.PlaneGeometry(50000, 50000);
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
 
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
@@ -75,75 +46,124 @@
         sun.castShadow = true;
         scene.add(sun);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        // HUD Elements
-        const speedElement = document.getElementById("speed");
-        const altitudeElement = document.getElementById("altitude");
-        const weaponElement = document.getElementById("weapon");
+        // Ground
+        const textureLoader = new THREE.TextureLoader();
+        const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
+        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(1000, 1000);
 
-        // Load Jet Model
+        const groundMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
+        const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Sky
+        const skyGeometry = new THREE.SphereGeometry(5000, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide });
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+
+        // Load Aircraft Model
         const loader = new THREE.GLTFLoader();
-        let jet;
+        let aircraft;
         loader.load(
             'f22_raptor.glb', // Replace with your model path
             function (gltf) {
-                jet = gltf.scene;
-                jet.scale.set(10, 10, 10);
-                jet.position.set(0, 2000, 0); // Spawn at 2000 meters altitude
-                scene.add(jet);
+                aircraft = gltf.scene;
+                aircraft.scale.set(10, 10, 10);
+                aircraft.position.set(0, 3000, 0); // Start at 3000 ft altitude
+                scene.add(aircraft);
 
-                console.log("Jet loaded successfully.");
+                console.log("Aircraft loaded successfully.");
             },
             undefined,
             function (error) {
-                console.error("Error loading jet model:", error);
-                // Add a placeholder geometry for testing if model loading fails
-                const placeholder = new THREE.Mesh(
-                    new THREE.CylinderGeometry(50, 50, 200),
-                    new THREE.MeshLambertMaterial({ color: 0xff0000 })
-                );
-                placeholder.position.set(0, 2000, 0);
-                scene.add(placeholder);
-                jet = placeholder;
+                console.error("Error loading aircraft model:", error);
             }
         );
 
         // Variables
-        let speed = 5;
-        let mouseX = 0, mouseY = 0;
+        let speed = 250; // Knots
+        let altitude = 3000; // Feet
+        let heading = 0; // Degrees
+        let thrust = 50; // Percent
+        let pitch = 0; // Nose up/down
+        let roll = 0; // Bank angle
+        let yaw = 0; // Left/right turning
 
-        window.addEventListener('mousemove', (event) => {
-            mouseX = -(event.clientX / window.innerWidth - 0.5); // Inverted yaw
-            mouseY = -(event.clientY / window.innerHeight - 0.5); // Inverted pitch
-        });
+        const speedElement = document.getElementById("speed");
+        const altitudeElement = document.getElementById("altitude");
+        const headingElement = document.getElementById("heading");
+        const thrustElement = document.getElementById("thrust");
 
+        // Controls
         window.addEventListener('keydown', (event) => {
-            if (!jet) return;
-            if (event.key === 'w') speed += 0.5; // Increase speed
-            if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
+            if (!aircraft) return;
+
+            switch (event.key) {
+                case 'w': thrust = Math.min(100, thrust + 5); break; // Increase thrust
+                case 's': thrust = Math.max(0, thrust - 5); break; // Decrease thrust
+                case 'ArrowUp': pitch -= 0.01; break; // Nose down
+                case 'ArrowDown': pitch += 0.01; break; // Nose up
+                case 'ArrowLeft': roll -= 0.01; break; // Bank left
+                case 'ArrowRight': roll += 0.01; break; // Bank right
+                case 'a': yaw -= 0.01; break; // Turn left
+                case 'd': yaw += 0.01; break; // Turn right
+            }
+            thrustElement.textContent = thrust;
         });
+
+        // Physics and Movement
+        function updateAircraft() {
+            if (!aircraft) return;
+
+            // Apply pitch, roll, and yaw
+            aircraft.rotation.x = pitch;
+            aircraft.rotation.z = roll;
+            aircraft.rotation.y += yaw * 0.01; // Adjust heading gradually
+
+            // Update speed and altitude
+            speed = thrust * 2.5; // Simplified relationship
+            altitude += speed * Math.sin(pitch) * 0.01; // Simulated lift
+            altitude = Math.max(0, altitude); // Prevent negative altitude
+
+            // Update HUD
+            speedElement.textContent = Math.round(speed);
+            altitudeElement.textContent = Math.round(altitude);
+            heading = (heading + yaw * 5) % 360;
+            headingElement.textContent = Math.round(heading < 0 ? heading + 360 : heading);
+
+            // Move aircraft forward
+            const direction = new THREE.Vector3();
+            aircraft.getWorldDirection(direction);
+            aircraft.position.addScaledVector(direction, speed * 0.01);
+        }
 
         // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
 
-            if (jet) {
-                // Mouse controls
-                jet.rotation.x += mouseY * 0.02; // Pitch
-                jet.rotation.y += mouseX * 0.02; // Yaw
-
-                const direction = new THREE.Vector3();
-                jet.getWorldDirection(direction);
-                jet.position.addScaledVector(direction, speed);
-
-                // Update HUD
-                speedElement.textContent = (speed * 50).toFixed(0);
-                altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
-            }
+            updateAircraft();
 
             renderer.render(scene, camera);
+
+            // Follow the aircraft
+            if (aircraft) {
+                camera.position.lerp(
+                    new THREE.Vector3(
+                        aircraft.position.x,
+                        aircraft.position.y + 50,
+                        aircraft.position.z + 200
+                    ),
+                    0.1
+                );
+                camera.lookAt(aircraft.position);
+            }
         }
 
         animate();
