@@ -89,6 +89,27 @@
         // Blue Sky
         scene.background = new THREE.Color(0x87CEEB);
 
+        // Infinite Buildings
+        const buildings = [];
+        function addBuilding(x, z, height) {
+            const buildingGeometry = new THREE.BoxGeometry(50, height, 50);
+            const buildingMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
+            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            building.position.set(x, height / 2, z);
+            building.castShadow = true;
+            building.receiveShadow = true;
+            scene.add(building);
+            buildings.push(building);
+        }
+
+        // Generate a grid of buildings
+        for (let i = -5000; i <= 5000; i += 200) {
+            for (let j = -5000; j <= 5000; j += 200) {
+                const height = Math.random() * 200 + 50; // Random height between 50 and 250
+                addBuilding(i, j, height);
+            }
+        }
+
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(100, 500, 100);
