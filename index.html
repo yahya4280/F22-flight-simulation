@@ -22,31 +22,10 @@
         #hud div { margin: 5px 0; }
         #crosshair {
             position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 30px;
-            height: 30px;
-            z-index: 20;
-        }
-        #crosshair:before, #crosshair:after {
-            content: '';
-            position: absolute;
-            background: red;
-        }
-        #crosshair:before {
             width: 2px;
-            height: 30px;
-            left: 50%;
-            top: 0;
-            transform: translateX(-50%);
-        }
-        #crosshair:after {
-            width: 30px;
             height: 2px;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
+            z-index: 20;
+            background: red;
         }
         #settings-menu {
             position: absolute;
@@ -125,6 +104,9 @@
         const gForceElement = document.getElementById("gForce");
         const weaponElement = document.getElementById("weapon");
 
+        // Crosshair
+        const crosshair = document.getElementById("crosshair");
+
         // Settings Menu
         const settingsMenu = document.getElementById("settings-menu");
         let isPaused = false;
@@ -132,11 +114,13 @@
         function toggleSettingsMenu() {
             isPaused = !isPaused;
             settingsMenu.style.display = isPaused ? "block" : "none";
+            if (!isPaused) animate(); // Resume the game
         }
 
         function resumeGame() {
             isPaused = false;
             settingsMenu.style.display = "none";
+            animate(); // Resume the game
         }
 
         window.addEventListener('keydown', (event) => {
@@ -231,46 +215,54 @@
         // Animation and Rendering
         let lastTime = performance.now();
         function animate() {
-            if (!isPaused) {
-                requestAnimationFrame(animate);
-                const currentTime = performance.now();
-                const deltaTime = (currentTime - lastTime) / 1000;
-                lastTime = currentTime;
+            if (isPaused) return;
 
-                if (jet) {
-                    jet.rotation.x += -mouseY * 0.02; // Pitch
-                    jet.rotation.z += mouseX * 0.02; // Roll
+            requestAnimationFrame(animate);
+            const currentTime = performance.now();
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
 
-                    const direction = new THREE.Vector3();
-                    jet.getWorldDirection(direction);
-                    jet.position.addScaledVector(direction, speed);
+            if (jet) {
+                jet.rotation.x += -mouseY * 0.02; // Pitch
+                jet.rotation.z += mouseX * 0.02; // Roll
 
-                    // Camera follows jet, adjusted upward
-                    const offset = new THREE.Vector3(0, 50, -150);
-                    offset.applyQuaternion(jet.quaternion);
-                    const cameraPosition = jet.position.clone().add(offset);
-                    camera.position.lerp(cameraPosition, 0.1);
-                    camera.lookAt(jet.position);
+                const direction = new THREE.Vector3();
+                jet.getWorldDirection(direction);
+                jet.position.addScaledVector(direction, speed);
 
-                    // Update HUD
-                    speedElement.textContent = (speed * 50).toFixed(0);
-                    altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
-                }
+                // Camera follows jet, adjusted upward
+                const offset = new THREE.Vector3(0, 50, -150);
+                offset.applyQuaternion(jet.quaternion);
+                const cameraPosition = jet.position.clone().add(offset);
+                camera.position.lerp(cameraPosition, 0.1);
+                camera.lookAt(jet.position);
 
-                // Fire projectiles
-                fireProjectile();
+                // Update HUD
+                speedElement.textContent = (speed * 50).toFixed(0);
+                altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
 
-                // Move Projectiles
-                projectiles.forEach((projectile, index) => {
-                    projectile.position.add(projectile.velocity);
-                    if (projectile.position.length() > 5000) {
-                        scene.remove(projectile);
-                        projectiles.splice(index, 1);
-                    }
-                });
-
-                renderer.render(scene, camera);
+                // Update Crosshair
+                const crosshairPosition = new THREE.Vector3();
+                jet.getWorldDirection(crosshairPosition);
+                crosshairPosition.multiplyScalar(100).add(jet.position);
+                const screenPosition = crosshairPosition.project(camera);
+                crosshair.style.left = `${(screenPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
+                crosshair.style.top = `${(-screenPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
             }
+
+            // Fire projectiles
+            fireProjectile();
+
+            // Move Projectiles
+            projectiles.forEach((projectile, index) => {
+                projectile.position.add(projectile.velocity);
+                if (projectile.position.length() > 5000) {
+                    scene.remove(projectile);
+                    projectiles.splice(index, 1);
+                }
+            });
+
+            renderer.render(scene, camera);
         }
 
         animate();
