@@ -34,7 +34,6 @@
         <div>Speed: <span id="speed">500</span> km/h</div>
         <div>Altitude: <span id="altitude">500</span> m</div>
         <div>Weapon: <span id="weapon">Bullets</span></div>
-        <div>G-Force: <span id="gForce">1</span> G</div>
     </div>
     <div id="crosshair"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -59,7 +58,6 @@
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
-        ground.isGround = true;
         scene.add(ground);
 
         // Infinite Buildings
@@ -71,7 +69,6 @@
             building.position.set(x, height / 2, z);
             building.castShadow = true;
             building.receiveShadow = true;
-            building.isBuilding = true;
             scene.add(building);
             buildings.push(building);
         }
@@ -166,7 +163,7 @@
 
             if (weapon === "Missiles") {
                 const now = performance.now();
-                if (now - lastMissileTime < missileCooldown) return; // Cooldown
+                if (now - lastMissileTime < missileCooldown) return; // Cooldown logic
                 lastMissileTime = now;
             }
 
@@ -198,6 +195,7 @@
             const groundBox = new THREE.Box3().setFromObject(ground);
             if (jetBox.intersectsBox(groundBox)) {
                 console.log("Collision with ground!");
+                jet.position.y += 10; // Move jet up
             }
 
             // Building collisions
@@ -205,6 +203,7 @@
                 const buildingBox = new THREE.Box3().setFromObject(building);
                 if (jetBox.intersectsBox(buildingBox)) {
                     console.log("Collision with building!");
+                    jet.position.y += 10; // Move jet up
                 }
             });
         }
