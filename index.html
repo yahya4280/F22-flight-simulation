@@ -47,42 +47,39 @@
         // Scene, Camera, Renderer
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.shadowMap.enabled = true;
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // HUD Elements
-        const gForceElement = document.getElementById("gForce");
+        // Add Blue Sky
+        scene.background = new THREE.Color(0x87CEEB);
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        // Terrain
+        const terrainGeometry = new THREE.PlaneGeometry(5000, 5000);
+        const terrainMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+        const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+        terrain.rotation.x = -Math.PI / 2;
+        terrain.receiveShadow = true;
+        scene.add(terrain);
+
+        // Lighting (Sun and Shadows)
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(100, 500, 100);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        scene.add(sun);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(100, 200, 100);
-        scene.add(directionalLight);
+        // HUD Elements
+        const speedElement = document.getElementById("speed");
+        const gForceElement = document.getElementById("gForce");
 
         // Camera Position
-        camera.position.set(0, 100, 300);
-
-        // Add City Buildings
-        const buildings = [];
-        function addBuilding(x, z, height) {
-            const geometry = new THREE.BoxGeometry(50, height, 50);
-            const material = new THREE.MeshLambertMaterial({ color: 0x888888 });
-            const building = new THREE.Mesh(geometry, material);
-            building.position.set(x, height / 2, z);
-            building.health = 3; // Health of the building
-            scene.add(building);
-            buildings.push(building);
-        }
-
-        for (let i = -500; i <= 500; i += 200) {
-            for (let j = -500; j <= 500; j += 200) {
-                const height = Math.random() * 100 + 50; // Random building height
-                addBuilding(i, j, height);
-            }
-        }
+        camera.position.set(0, 50, -200); // Start behind the jet
 
         // Load F-22 Raptor Model
         const loader = new THREE.GLTFLoader();
@@ -93,6 +90,7 @@
                 jet = gltf.scene;
                 jet.scale.set(10, 10, 10);
                 jet.position.set(0, 50, 0);
+                jet.castShadow = true;
                 scene.add(jet);
                 console.log('Model loaded successfully!');
             },
@@ -102,7 +100,8 @@
             }
         );
 
-        // Mouse Controls
+        // Controls and Variables
+        let speed = 2; // Initial speed
         let mouseX = 0, mouseY = 0;
         const screenCenterX = window.innerWidth / 2;
         const screenCenterY = window.innerHeight / 2;
@@ -112,20 +111,9 @@
             mouseY = (event.clientY - screenCenterY) / screenCenterY;
         });
 
-        // Firing Bullets
-        const bullets = [];
-        window.addEventListener('click', () => {
-            if (!jet) return;
-            const bullet = new THREE.Mesh(
-                new THREE.SphereGeometry(2),
-                new THREE.MeshBasicMaterial({ color: 0xff0000 })
-            );
-            bullet.position.copy(jet.position);
-            bullet.velocity = new THREE.Vector3();
-            jet.getWorldDirection(bullet.velocity);
-            bullet.velocity.multiplyScalar(10); // Bullet speed
-            scene.add(bullet);
-            bullets.push(bullet);
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'w') speed += 0.5; // Increase speed
+            if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
         });
 
         // Calculate G-Force
@@ -136,7 +124,7 @@
             if (!jet) return 1; // Default G-force when stationary
 
             jet.getWorldDirection(currentVelocity);
-            currentVelocity.multiplyScalar(2 / deltaTime);
+            currentVelocity.multiplyScalar(speed / deltaTime);
 
             const acceleration = currentVelocity.clone().sub(previousVelocity).length();
             previousVelocity.copy(currentVelocity);
@@ -156,46 +144,26 @@
 
             // Move Jet
             if (jet) {
-                jet.rotation.x += -mouseY * 0.02;
-                jet.rotation.z += -mouseX * 0.02;
+                jet.rotation.x += -mouseY * 0.02; // Pitch
+                jet.rotation.z += -mouseX * 0.02; // Roll
+                jet.rotation.y += (mouseX * 0.01); // Yaw for smoother turns
 
                 const direction = new THREE.Vector3();
                 jet.getWorldDirection(direction);
-                jet.position.addScaledVector(direction, 2);
+                jet.position.addScaledVector(direction, speed);
 
                 // Camera follows the jet
                 camera.position.lerp(
-                    new THREE.Vector3(jet.position.x, jet.position.y + 50, jet.position.z + 150),
+                    new THREE.Vector3(jet.position.x, jet.position.y + 20, jet.position.z - 150),
                     0.1
                 );
                 camera.lookAt(jet.position);
 
-                // Update G-Force Indicator
+                // Update HUD
                 const gForce = calculateGForce(deltaTime);
                 gForceElement.textContent = gForce;
+                speedElement.textContent = (speed * 50).toFixed(0); // Scaled speed
             }
-
-            // Move Bullets and Check for Collisions
-            bullets.forEach((bullet, bulletIndex) => {
-                bullet.position.add(bullet.velocity);
-
-                buildings.forEach((building, buildingIndex) => {
-                    if (
-                        Math.abs(bullet.position.x - building.position.x) < 25 &&
-                        Math.abs(bullet.position.y - building.position.y) < building.geometry.parameters.height / 2 &&
-                        Math.abs(bullet.position.z - building.position.z) < 25
-                    ) {
-                        building.health -= 1;
-                        scene.remove(bullet);
-                        bullets.splice(bulletIndex, 1);
-
-                        if (building.health <= 0) {
-                            scene.remove(building);
-                            buildings.splice(buildingIndex, 1);
-                        }
-                    }
-                });
-            });
 
             renderer.render(scene, camera);
         }
