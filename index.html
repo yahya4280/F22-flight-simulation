@@ -108,7 +108,7 @@
         scene.add(terrain);
 
         // Blue Sky
-        scene.background = new THREE.Color(0x87CEEB); // Light blue color
+        scene.background = new THREE.Color(0x87CEEB);
 
         // Lighting
         const sun = new THREE.DirectionalLight(0xffffff, 1);
@@ -121,6 +121,7 @@
 
         // HUD Elements
         const speedElement = document.getElementById("speed");
+        const altitudeElement = document.getElementById("altitude");
         const gForceElement = document.getElementById("gForce");
         const weaponElement = document.getElementById("weapon");
 
@@ -171,6 +172,7 @@
         let speed = 5;
         let mouseX = 0, mouseY = 0;
         let weapon = "Bullets"; // Current weapon
+        let isFiring = false; // For continuous firing
         const projectiles = [];
         const screenCenterX = window.innerWidth / 2;
         const screenCenterY = window.innerHeight / 2;
@@ -196,9 +198,17 @@
             }
         });
 
-        // Firing Weapons
-        window.addEventListener('click', () => {
-            if (!jet || isPaused) return;
+        window.addEventListener('mousedown', () => {
+            isFiring = true;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isFiring = false;
+        });
+
+        // Firing Projectiles
+        function fireProjectile() {
+            if (!jet || !isFiring || isPaused) return;
 
             const projectileGeometry = weapon === "Bullets"
                 ? new THREE.CylinderGeometry(0.5, 0.5, 5)
@@ -216,7 +226,7 @@
             projectile.velocity.multiplyScalar(weapon === "Bullets" ? 50 : 20); // Bullets are faster
             scene.add(projectile);
             projectiles.push(projectile);
-        });
+        }
 
         // Animation and Rendering
         let lastTime = performance.now();
@@ -242,8 +252,13 @@
                     camera.position.lerp(cameraPosition, 0.1);
                     camera.lookAt(jet.position);
 
+                    // Update HUD
                     speedElement.textContent = (speed * 50).toFixed(0);
+                    altitudeElement.textContent = Math.max(0, Math.round(jet.position.y));
                 }
+
+                // Fire projectiles
+                fireProjectile();
 
                 // Move Projectiles
                 projectiles.forEach((projectile, index) => {
