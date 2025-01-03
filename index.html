@@ -25,11 +25,28 @@
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 10px;
-            height: 10px;
-            background: red;
-            border-radius: 50%;
+            width: 30px;
+            height: 30px;
             z-index: 20;
+        }
+        #crosshair:before, #crosshair:after {
+            content: '';
+            position: absolute;
+            background: red;
+        }
+        #crosshair:before {
+            width: 2px;
+            height: 30px;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+        #crosshair:after {
+            width: 30px;
+            height: 2px;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
         }
         #settings-menu {
             position: absolute;
@@ -81,15 +98,15 @@
         const textureLoader = new THREE.TextureLoader();
         const grassTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/grass.jpg');
         grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-        grassTexture.repeat.set(500, 500); // Adjust for better appearance
-        
+        grassTexture.repeat.set(1000, 1000);
+
         const terrainMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
-        const terrainGeometry = new THREE.PlaneGeometry(100000, 100000); // Make the ground extremely large
+        const terrainGeometry = new THREE.PlaneGeometry(50000, 50000);
         const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
-        terrain.rotation.x = -Math.PI / 2; // Rotate to lie flat
+        terrain.rotation.x = -Math.PI / 2;
         terrain.receiveShadow = true;
         scene.add(terrain);
-        
+
         // Blue Sky
         scene.background = new THREE.Color(0x87CEEB); // Light blue color
 
@@ -167,8 +184,8 @@
             if (!jet || isPaused) return;
             if (event.key === 'w') speed += 0.5; // Increase speed
             if (event.key === 's') speed = Math.max(1, speed - 0.5); // Decrease speed
-            if (event.key === 'a') jet.rotation.y += 0.05; // Rudder left
-            if (event.key === 'd') jet.rotation.y -= 0.05; // Rudder right
+            if (event.key === 'a') jet.rotation.y += 0.07; // Smoother Rudder left
+            if (event.key === 'd') jet.rotation.y -= 0.07; // Smoother Rudder right
             if (event.key === '1') {
                 weapon = "Bullets";
                 weaponElement.textContent = weapon;
@@ -218,8 +235,8 @@
                     jet.getWorldDirection(direction);
                     jet.position.addScaledVector(direction, speed);
 
-                    // Camera follows jet
-                    const offset = new THREE.Vector3(0, 20, -100);
+                    // Camera follows jet, adjusted upward
+                    const offset = new THREE.Vector3(0, 50, -150);
                     offset.applyQuaternion(jet.quaternion);
                     const cameraPosition = jet.position.clone().add(offset);
                     camera.position.lerp(cameraPosition, 0.1);
