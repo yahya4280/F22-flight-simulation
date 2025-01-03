@@ -35,7 +35,7 @@
 </head>
 <body>
     <div id="hud">
-        <div>Speed: <span id="speed">250</span> km/h</div>
+        <div>Speed: <span id="speed">500</span> km/h</div>
         <div>Altitude: <span id="altitude">500</span> m</div>
         <div>Weapon: <span id="weapon">Bullets</span></div>
         <div>G-Force: <span id="gForce">1</span> G</div>
@@ -101,7 +101,7 @@
         );
 
         // Controls and Variables
-        let speed = 2; // Initial speed
+        let speed = 5; // Increased speed
         let mouseX = 0, mouseY = 0;
         const screenCenterX = window.innerWidth / 2;
         const screenCenterY = window.innerHeight / 2;
@@ -145,8 +145,8 @@
             // Move Jet
             if (jet) {
                 jet.rotation.x += -mouseY * 0.02; // Pitch
-                jet.rotation.z += -mouseX * 0.02; // Roll
-                jet.rotation.y += (mouseX * 0.01); // Yaw for smoother turns
+                jet.rotation.z += mouseX * 0.02; // Roll
+                jet.rotation.y += mouseX * 0.01; // Yaw for smoother turns
 
                 const direction = new THREE.Vector3();
                 jet.getWorldDirection(direction);
