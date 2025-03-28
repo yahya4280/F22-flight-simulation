@@ -1,14 +1,10 @@
 class FlightSimulator {
     constructor() {
-        console.log("Initializing Flight Simulator...");
-        // Flight parameters with realistic initial values
+        // Flight parameters
         this.speed = 250; // knots
-        this.altitude = 600; // feet (near buildings)
+        this.altitude = 700; // feet
         this.heading = 0; // degrees
         this.thrust = 50; // percent
-        this.pitch = 0; // degrees
-        this.roll = 0; // degrees
-        this.yaw = 0; // degrees
         this.weapon = "GUN";
         this.isFiring = false;
         this.lastFireTime = 0;
@@ -20,11 +16,11 @@ class FlightSimulator {
         this.aircraft = null;
         this.cityObjects = [];
         this.clock = new THREE.Clock();
-        this.cameraDistance = 50; // Camera distance from aircraft
 
-        this.previousPitch = 0; // Initialize previousPitch
-        this.previousRoll = 0; // Initialize previousRoll
-        this.previousYaw = 0; // Initialize previousYaw
+        // Control smoothing
+        this.previousPitch = 0;
+        this.previousRoll = 0;
+        this.previousYaw = 0;
 
         this.initScene();
         this.initControls();
@@ -36,7 +32,6 @@ class FlightSimulator {
     }
 
     initScene() {
-        console.log("Initializing Scene...");
         this.scene = new THREE.Scene();
         this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.0002);
 
@@ -53,27 +48,19 @@ class FlightSimulator {
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(100, 500, 100);
         directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 500;
         this.scene.add(directionalLight);
     }
 
     loadAircraftModel() {
-        console.log("Loading Aircraft Model...");
         const loader = new THREE.GLTFLoader();
         loader.load(
             'assets/f22_raptor.glb',
             (gltf) => {
-                console.log("Aircraft model loaded successfully.");
                 this.aircraft = gltf.scene;
                 this.aircraft.scale.set(3, 3, 3);
-                this.aircraft.position.set(0, this.altitude * 0.3048, 0); // Convert feet to meters
+                this.aircraft.position.set(0, this.altitude * 0.3048, 0);
                 this.scene.add(this.aircraft);
-                
-                // Set initial camera position
-                this.updateCameraPosition();
+                this.updateCameraPosition(true);
             },
             undefined,
             (error) => {
@@ -84,118 +71,81 @@ class FlightSimulator {
     }
 
     createPlaceholderAircraft() {
-        console.log("Creating placeholder aircraft...");
         const geometry = new THREE.BoxGeometry(20, 5, 30);
         const material = new THREE.MeshPhongMaterial({ color: 0x888888 });
         this.aircraft = new THREE.Mesh(geometry, material);
         this.aircraft.position.set(0, this.altitude * 0.3048, 0);
         this.scene.add(this.aircraft);
-        this.updateCameraPosition();
+        this.updateCameraPosition(true);
     }
 
     initEnvironment() {
-        console.log("Initializing Environment...");
         // Ground
-        const groundGeometry = new THREE.PlaneGeometry(50000, 50000);
-        const groundMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x3a5f0b,
-            side: THREE.DoubleSide
-        });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(50000, 50000),
+            new THREE.MeshLambertMaterial({ color: 0x3a5f0b })
+        );
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         this.scene.add(ground);
 
         // Sky
-        const skyGeometry = new THREE.SphereGeometry(40000, 32, 32);
-        const skyMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x87CEEB,
-            side: THREE.BackSide
-        });
-        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        const sky = new THREE.Mesh(
+            new THREE.SphereGeometry(40000, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide })
+        );
         this.scene.add(sky);
 
-        // Create city with buildings (max height 500ft)
-        this.createCity(50, 10000, 500);
+        // City
+        this.createCity(50, 1000, 500);
     }
 
     createCity(buildingCount, areaSize, maxHeight) {
-        console.log("Creating City...");
-        const maxHeightMeters = maxHeight * 0.3048; // Convert feet to meters
-        
-        // Create a central cluster of buildings
-        const clusterSize = areaSize / 4;
+        const maxHeightMeters = maxHeight * 0.3048;
         
         for (let i = 0; i < buildingCount; i++) {
             const width = 20 + Math.random() * 80;
             const depth = 20 + Math.random() * 80;
             const height = 10 + Math.random() * maxHeightMeters;
             
-            const geometry = new THREE.BoxGeometry(width, height, depth);
-            const material = new THREE.MeshLambertMaterial({ 
-                color: Math.random() * 0x808080 + 0x808080 // Grayscale colors
-            });
-            
-            const building = new THREE.Mesh(geometry, material);
-            building.castShadow = true;
-            building.receiveShadow = true;
-            
-            // Position buildings in a cluster near the center
-            building.position.set(
-                (Math.random() - 0.5) * clusterSize,
-                height / 2,
-                (Math.random() - 0.5) * clusterSize
+            const building = new THREE.Mesh(
+                new THREE.BoxGeometry(width, height, depth),
+                new THREE.MeshLambertMaterial({ color: 0x808080 })
             );
-            
+            building.position.set(
+                (Math.random() - 0.5) * areaSize,
+                height / 2,
+                (Math.random() - 0.5) * areaSize
+            );
+            building.castShadow = true;
             this.scene.add(building);
-            this.cityObjects.push(building);
         }
 
-        // Add some trees around the buildings
-        this.createTrees(100, clusterSize * 2);
+        this.createTrees(100, areaSize);
     }
 
     createTrees(count, areaSize) {
-        console.log("Creating Trees...");
-        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5);
-        const leavesGeometry = new THREE.ConeGeometry(3, 8);
-        
-        const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
-        const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+        const trunk = new THREE.CylinderGeometry(0.5, 0.5, 5);
+        const leaves = new THREE.ConeGeometry(3, 8);
         
         for (let i = 0; i < count; i++) {
-            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-            
-            leaves.position.y = 5;
-            
             const tree = new THREE.Group();
-            tree.add(trunk);
-            tree.add(leaves);
+            tree.add(new THREE.Mesh(trunk, new THREE.MeshLambertMaterial({ color: 0x8B4513 })));
+            const leavesMesh = new THREE.Mesh(leaves, new THREE.MeshLambertMaterial({ color: 0x228B22 }));
+            leavesMesh.position.y = 5;
+            tree.add(leavesMesh);
             
-            // Position trees around the buildings
-            const angle = Math.random() * Math.PI * 2;
-            const distance = clusterSize + Math.random() * (areaSize - clusterSize);
-            const x = Math.cos(angle) * distance;
-            const z = Math.sin(angle) * distance;
-            
-            tree.position.set(x, 0, z);
-            
-            tree.castShadow = true;
+            tree.position.set(
+                (Math.random() - 0.5) * areaSize,
+                0,
+                (Math.random() - 0.5) * areaSize
+            );
             this.scene.add(tree);
-            this.cityObjects.push(tree);
         }
     }
 
     initControls() {
-        console.log("Initializing Controls...");
-        // Mouse controls
-        window.addEventListener('mousemove', (e) => {
-            this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-            this.mouseY = -(e.clientY / window.innerHeight - 0.5) * 2;
-        });
-
-        // Touch controls for mobile
+        // Touch controls
         const joystick = document.getElementById('joystick');
         const joystickContainer = document.querySelector('.joystick-container');
         
@@ -227,8 +177,6 @@ class FlightSimulator {
             joystick.style.transform = `translate(${x}px, ${y}px)`;
             this.joystickPos.x = x / maxDist;
             this.joystickPos.y = -y / maxDist;
-            this.mouseX = this.joystickPos.x;
-            this.mouseY = this.joystickPos.y;
         });
         
         document.addEventListener('touchend', () => {
@@ -236,146 +184,112 @@ class FlightSimulator {
             joystick.style.transform = 'translate(0, 0)';
             this.joystickPos.x = 0;
             this.joystickPos.y = 0;
-            this.mouseX = 0;
-            this.mouseY = 0;
         });
 
-        // Fire button
+        // Control bindings
         document.getElementById('fire-btn').addEventListener('touchstart', () => this.isFiring = true);
         document.getElementById('fire-btn').addEventListener('touchend', () => this.isFiring = false);
+        document.getElementById('weapon-btn').addEventListener('click', () => this.switchWeapon());
+        document.getElementById('thrust-up').addEventListener('touchstart', () => this.adjustThrust(5));
+        document.getElementById('thrust-down').addEventListener('touchstart', () => this.adjustThrust(-5));
+        
+        // Mouse controls
         document.addEventListener('mousedown', () => this.isFiring = true);
         document.addEventListener('mouseup', () => this.isFiring = false);
         
-        // Weapon switch
-        document.getElementById('weapon-btn').addEventListener('click', () => {
-            this.weapon = this.weapon === "GUN" ? "MISSILE" : "GUN";
-            document.getElementById('weapon').textContent = this.weapon;
-        });
-        
-        // Thrust controls
-        document.getElementById('thrust-up').addEventListener('touchstart', () => {
-            this.thrust = Math.min(100, this.thrust + 5);
-            document.getElementById('thrust').textContent = this.thrust;
-        });
-        
-        document.getElementById('thrust-down').addEventListener('touchstart', () => {
-            this.thrust = Math.max(0, this.thrust - 5);
-            document.getElementById('thrust').textContent = this.thrust;
-        });
-
-        // Keyboard controls for additional movement
+        // Keyboard controls
         window.addEventListener('keydown', (e) => {
             switch(e.key) {
-                case 'w': this.thrust = Math.min(100, this.thrust + 5); break;
-                case 's': this.thrust = Math.max(0, this.thrust - 5); break;
-                case 'a': this.yaw = -1; break; // Left yaw
-                case 'd': this.yaw = 1; break;  // Right yaw
-                case 'q': this.roll = -1; break; // Left roll
-                case 'e': this.roll = 1; break;  // Right roll
+                case 'w': this.adjustThrust(5); break;
+                case 's': this.adjustThrust(-5); break;
                 case '1': this.weapon = "GUN"; break;
                 case '2': this.weapon = "MISSILE"; break;
-                case 'ArrowUp': this.pitch = 1; break;    // Nose up
-                case 'ArrowDown': this.pitch = -1; break; // Nose down
             }
             document.getElementById('weapon').textContent = this.weapon;
-            document.getElementById('thrust').textContent = this.thrust;
         });
+    }
 
-        window.addEventListener('keyup', (e) => {
-            switch(e.key) {
-                case 'a': 
-                case 'd': this.yaw = 0; break;
-                case 'q': 
-                case 'e': this.roll = 0; break;
-                case 'ArrowUp': 
-                case 'ArrowDown': this.pitch = 0; break;
-            }
-        });
+    updateCameraPosition(immediate = false) {
+        if (!this.aircraft) return;
+        
+        const cameraOffset = new THREE.Vector3(0, 15, -40);
+        cameraOffset.applyQuaternion(this.aircraft.quaternion);
+        cameraOffset.add(this.aircraft.position);
+        
+        const lookAtPoint = new THREE.Vector3(0, 5, 50);
+        lookAtPoint.applyQuaternion(this.aircraft.quaternion);
+        lookAtPoint.add(this.aircraft.position);
+
+        if (immediate) {
+            this.camera.position.copy(cameraOffset);
+            this.camera.lookAt(lookAtPoint);
+        } else {
+            this.camera.position.lerp(cameraOffset, 0.1);
+            this.camera.lookAt(lookAtPoint);
+        }
     }
 
     gameLoop() {
         const deltaTime = Math.min(0.1, this.clock.getDelta());
         
         if (this.aircraft) {
-            // Update aircraft physics
             this.updateAircraftPhysics(deltaTime);
-            
-            // Update camera position
             this.updateCameraPosition();
         }
         
-        // Update projectiles
         this.updateProjectiles(deltaTime);
-        
-        // Render scene
         this.renderer.render(this.scene, this.camera);
-        
-        // Continue loop
         requestAnimationFrame(() => this.gameLoop());
     }
 
-    updateCameraPosition() {
-        if (!this.aircraft) return;
-        
-        // Position camera 50 units back and 10 units up from aircraft for better view
-        const cameraOffset = new THREE.Vector3(0, 10, -50);
-        cameraOffset.applyQuaternion(this.aircraft.quaternion);
-        cameraOffset.add(this.aircraft.position);
-        
-        // Smooth camera follow with lerping
-        this.camera.position.lerp(cameraOffset, 0.1);
-        this.camera.lookAt(this.aircraft.position);
-        
-        // Add slight camera rotation based on aircraft movement
-        const lookAhead = new THREE.Vector3(0, 0, -50);
-        lookAhead.applyQuaternion(this.aircraft.quaternion);
-        lookAhead.add(this.aircraft.position);
-        this.camera.lookAt(lookAhead);
-    }
-
     updateAircraftPhysics(deltaTime) {
-        // Reduced sensitivity factors
-        const SENSITIVITY = 0.3;
-        const PITCH_SENSITIVITY = 0.2;
-        const ROLL_SENSITIVITY = 0.3;
-        const YAW_SENSITIVITY = 0.1;
+        // Control inputs
+        const pitchInput = THREE.MathUtils.clamp(this.joystickPos.y * 0.8 + this.previousPitch * 0.2, -1, 1);
+        const rollInput = THREE.MathUtils.clamp(this.joystickPos.x * 0.8 + this.previousRoll * 0.2, -1, 1);
+        
+        // Aircraft rotation
+        this.aircraft.rotation.x += pitchInput * 0.02 * deltaTime;
+        this.aircraft.rotation.z += rollInput * 0.03 * deltaTime;
+        this.aircraft.rotation.y += rollInput * 0.01 * deltaTime; // Coordinated turn
+        
+        // Clamp rotations
+        this.aircraft.rotation.x = THREE.MathUtils.clamp(this.aircraft.rotation.x, -0.5, 0.5);
+        this.aircraft.rotation.z = THREE.MathUtils.clamp(this.aircraft.rotation.z, -0.5, 0.5);
 
-        // Smoother input processing with dead zone
-        const deadZone = 0.1;
-        let pitchInput = THREE.MathUtils.clamp(this.mouseY * SENSITIVITY + this.pitch * PITCH_SENSITIVITY, -1, 1);
-        let rollInput = THREE.MathUtils.clamp(this.mouseX * SENSITIVITY + this.roll * ROLL_SENSITIVITY, -1, 1);
-        let yawInput = THREE.MathUtils.clamp(this.yaw * YAW_SENSITIVITY, -1, 1);
-
-        // Apply low-pass filter for smoother controls
-        pitchInput = this.lerp(this.previousPitch, pitchInput, 0.1);
-        rollInput = this.lerp(this.previousRoll, rollInput, 0.1);
-        yawInput = this.lerp(this.previousYaw, yawInput, 0.1);
-
-        // Update aircraft rotation with realistic rates
-        const MAX_PITCH_RATE = 0.5 * deltaTime;
-        const MAX_ROLL_RATE = 1.0 * deltaTime;
-        const MAX_YAW_RATE = 0.3 * deltaTime;
-
-        this.aircraft.rotation.x += THREE.MathUtils.clamp(pitchInput, -MAX_PITCH_RATE, MAX_PITCH_RATE);
-        this.aircraft.rotation.z += THREE.MathUtils.clamp(rollInput, -MAX_ROLL_RATE, MAX_ROLL_RATE);
-        this.aircraft.rotation.y += THREE.MathUtils.clamp(yawInput, -MAX_YAW_RATE, MAX_YAW_RATE);
-
-        // Clamp rotations to realistic limits
-        this.aircraft.rotation.x = THREE.MathUtils.clamp(this.aircraft.rotation.x, -0.5, 0.5); // ±30 degrees
-        this.aircraft.rotation.z = THREE.MathUtils.clamp(this.aircraft.rotation.z, -0.5, 0.5); // ±30 degrees
-
-        // Store previous values for smoothing
-        this.previousPitch = pitchInput;
-        this.previousRoll = rollInput;
-        this.previousYaw = yawInput;
+        // Update movement
+        const targetSpeed = this.thrust * 5;
+        this.speed += (targetSpeed - this.speed) * 0.02 * deltaTime;
+        
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(this.aircraft.quaternion);
+        forward.multiplyScalar(this.speed * 0.02 * deltaTime);
+        this.aircraft.position.add(forward);
+        
+        // Update altitude
+        this.altitude = this.aircraft.position.y / 0.3048;
+        this.heading = (this.aircraft.rotation.y * (180 / Math.PI)) % 360;
+        
+        // Update HUD
+        this.speedElement.textContent = Math.round(this.speed);
+        this.altitudeElement.textContent = Math.round(this.altitude);
+        this.headingElement.textContent = Math.round(this.heading);
     }
 
-    lerp(a, b, t) {
-        return a * (1 - t) + b * t;
+    updateProjectiles(deltaTime) {
+        // Projectile update logic
+    }
+
+    adjustThrust(amount) {
+        this.thrust = THREE.MathUtils.clamp(this.thrust + amount, 0, 100);
+        document.getElementById('thrust').textContent = this.thrust;
+    }
+
+    switchWeapon() {
+        this.weapon = this.weapon === "GUN" ? "MISSILE" : "GUN";
+        document.getElementById('weapon').textContent = this.weapon;
     }
 
     initHUD() {
-        console.log("Initializing HUD...");
         this.speedElement = document.getElementById("speed");
         this.altitudeElement = document.getElementById("altitude");
         this.headingElement = document.getElementById("heading");
@@ -384,7 +298,6 @@ class FlightSimulator {
     }
 
     handleResize() {
-        console.log("Handling Resize...");
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
@@ -393,8 +306,10 @@ class FlightSimulator {
     }
 }
 
-// Start the simulator when the page loads
+// Initialize simulator
 window.addEventListener('load', () => {
-    console.log("Starting Flight Simulator...");
-    const simulator = new FlightSimulator();
-    
+    new FlightSimulator();
+    if ('ontouchstart' in window && window.innerWidth > window.innerHeight) {
+        document.getElementById('mobile-controls').style.display = 'flex';
+    }
+});
