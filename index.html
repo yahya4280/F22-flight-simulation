@@ -3,8 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flight Simulator</title>
-    <style>
-        /* Add your CSS styles here */
-    </style>
-    <link href="https://
+    <title> Yahya's Flight Simulator</title>
+    <link href="style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three-gltf-loader@1.112.0/index.min.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div id="orientation-message">Please rotate your device</div>
+    <div id="hud">
+        <div id="speed">Speed: 0</div>
+        <div id="altitude">Altitude: 0</div>
+        <div id="heading">Heading: 0</div>
+        <div id="weapon">Weapon: GUN</div>
+        <div id="thrust">Thrust: 50%</div>
+    </div>
+    <div id="crosshair"></div>
+    <div id="mobile-controls">
+        <div class="joystick-container">
+            <div id="joystick" class="joystick"></div>
+        </div>
+        <div class="action-buttons">
+            <div id="fire-btn" class="control fire-btn">Fire</div>
+            <div id="weapon-btn" class="control weapon-btn">Weapon</div>
+        </div>
+        <div class="thrust-controls">
+            <div id="thrust-up" class="control thrust-up">Thrust Up</div>
+            <div id="thrust-down" class="control thrust-down">Thrust Down</div>
+        </div>
+    </div>
+</body>
+</html>
