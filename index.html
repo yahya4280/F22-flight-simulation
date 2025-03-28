@@ -2,36 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Yahya's Flight Simulator</title>
-    <link href="style.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three-gltf-loader@1.112.0/index.min.js"></script>
-    <script src="app.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>F-22 Flight Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        @media screen and (orientation:portrait) and (max-width: 768px) {
+            #orientation-message {
+                display: flex;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="orientation-message">Please rotate your device</div>
+    <div id="orientation-message">
+        <p>Please rotate your device to landscape mode</p>
+    </div>
+
     <div id="hud">
-        <div id="speed">Speed: 0</div>
-        <div id="altitude">Altitude: 0</div>
-        <div id="heading">Heading: 0</div>
-        <div id="weapon">Weapon: GUN</div>
-        <div id="thrust">Thrust: 50%</div>
+        <div>Speed: <span id="speed">250</span> knots</div>
+        <div>Altitude: <span id="altitude">700</span> ft</div>
+        <div>Heading: <span id="heading">0</span>°</div>
+        <div>Weapon: <span id="weapon">GUN</span></div>
+        <div>Thrust: <span id="thrust">50</span>%</div>
     </div>
     <div id="crosshair"></div>
+    
+    <!-- Mobile Controls -->
     <div id="mobile-controls">
         <div class="joystick-container">
             <div id="joystick" class="joystick"></div>
         </div>
         <div class="action-buttons">
-            <div id="fire-btn" class="control fire-btn">Fire</div>
-            <div id="weapon-btn" class="control weapon-btn">Weapon</div>
+            <div class="control fire-btn" id="fire-btn">FIRE</div>
+            <div class="control weapon-btn" id="weapon-btn">SWITCH WEAPON</div>
         </div>
         <div class="thrust-controls">
-            <div id="thrust-up" class="control thrust-up">Thrust Up</div>
-            <div id="thrust-down" class="control thrust-down">Thrust Down</div>
+            <div class="control thrust-up" id="thrust-up">↑ THRUST</div>
+            <div class="control thrust-down" id="thrust-down">↓ THRUST</div>
         </div>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
