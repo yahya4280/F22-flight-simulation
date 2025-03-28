@@ -276,24 +276,6 @@ class FlightSimulator {
                 this.pitch * 0.3, 
                 0.1
             );
-            
-
-        // New camera positioning - closer third-person view
-            const cameraOffset = new THREE.Vector3(0, 3, -10);
-            cameraOffset.applyQuaternion(this.aircraft.quaternion);
-            cameraOffset.add(this.aircraft.position);
-             
-            this.camera.position.lerp(cameraOffset, 0.1);
-            this.camera.lookAt(
-            this.aircraft.position.x,
-            this.aircraft.position.y + 1,
-            this.aircraft.position.z + 20
-            );
-        }
-
-        this.renderer.render(this.scene, this.camera);
-        this.updateHUD();
-    }
 
             // Movement
             const forwardSpeed = Math.cos(this.aircraft.rotation.x) * this.thrust * 0.5;
@@ -302,13 +284,17 @@ class FlightSimulator {
             this.aircraft.position.z -= forwardSpeed;
             this.aircraft.position.y += verticalSpeed;
 
-            // Camera follow
-            this.camera.position.lerp(new THREE.Vector3(
+            // Camera follow - closer view
+            const cameraOffset = new THREE.Vector3(0, 3, -10);
+            cameraOffset.applyQuaternion(this.aircraft.quaternion);
+            cameraOffset.add(this.aircraft.position);
+            
+            this.camera.position.lerp(cameraOffset, 0.1);
+            this.camera.lookAt(
                 this.aircraft.position.x,
-                this.aircraft.position.y + 100,
-                this.aircraft.position.z + 200
-            ), 0.1);
-            this.camera.lookAt(this.aircraft.position);
+                this.aircraft.position.y + 1,
+                this.aircraft.position.z + 20
+            );
         }
 
         this.renderer.render(this.scene, this.camera);
