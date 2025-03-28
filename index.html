@@ -4,11 +4,174 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>F-22 Flight Simulator</title>
-    <link rel="stylesheet" href="style.css">
     <style>
-        @media screen and (orientation:portrait) and (max-width: 768px) {
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+            background-color: #000;
+        }
+
+        #orientation-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 1000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+
+        #hud div {
+            margin: 3px 0;
+        }
+
+        #crosshair {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="red" stroke-width="2"/><line x1="12" y1="0" x2="12" y2="6" stroke="red" stroke-width="2"/><line x1="12" y1="18" x2="12" y2="24" stroke="red" stroke-width="2"/><line x1="0" y1="12" x2="6" y2="12" stroke="red" stroke-width="2"/><line x1="18" y1="12" x2="24" y2="12" stroke="red" stroke-width="2"/></svg>') no-repeat center;
+            pointer-events: none;
+            z-index: 90;
+        }
+
+        #mobile-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .joystick-container {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+
+        .joystick {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            touch-action: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .thrust-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            user-select: none;
+            touch-action: manipulation;
+            transition: transform 0.1s;
+        }
+
+        .control:active {
+            transform: scale(0.9);
+            filter: brightness(1.2);
+        }
+
+        .fire-btn {
+            background: rgba(255, 0, 0, 0.5);
+        }
+
+        .weapon-btn {
+            background: rgba(0, 0, 255, 0.5);
+        }
+
+        .thrust-up {
+            background: rgba(0, 255, 0, 0.3);
+        }
+
+        .thrust-down {
+            background: rgba(255, 255, 0, 0.3);
+        }
+
+        .camera-btn {
+            background: rgba(255, 165, 0, 0.5);
+        }
+
+        #debug {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-family: monospace;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        @media screen and (orientation:portrait) {
             #orientation-message {
                 display: flex;
+            }
+            #mobile-controls {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 768px) and (orientation: landscape) {
+            #mobile-controls {
+                display: flex;
+            }
+            #hud {
+                font-size: 12px;
             }
         }
     </style>
@@ -19,11 +182,11 @@
     </div>
 
     <div id="hud">
-        <div>Speed: <span id="speed">250</span> knots</div>
-        <div>Altitude: <span id="altitude">700</span> ft</div>
+        <div>Speed: <span id="speed">0</span> knots</div>
+        <div>Altitude: <span id="altitude">0</span> ft</div>
         <div>Heading: <span id="heading">0</span>°</div>
         <div>Weapon: <span id="weapon">GUN</span></div>
-        <div>Thrust: <span id="thrust">50</span>%</div>
+        <div>Thrust: <span id="thrust">0</span>%</div>
     </div>
     <div id="crosshair"></div>
     
@@ -34,7 +197,8 @@
         </div>
         <div class="action-buttons">
             <div class="control fire-btn" id="fire-btn">FIRE</div>
-            <div class="control weapon-btn" id="weapon-btn">SWITCH WEAPON</div>
+            <div class="control weapon-btn" id="weapon-btn">WEAPON</div>
+            <div class="control camera-btn" id="camera-btn">CAMERA</div>
         </div>
         <div class="thrust-controls">
             <div class="control thrust-up" id="thrust-up">↑ THRUST</div>
@@ -42,15 +206,11 @@
         </div>
     </div>
 
-    <div id="debug" style="position: fixed; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; font-family: monospace;">
+    <div id="debug">
         <div>Status: <span id="debug-status">Initializing...</span></div>
         <div>Errors: <span id="debug-errors">0</span></div>
         <div>Warnings: <span id="debug-warnings">0</span></div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="app.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
