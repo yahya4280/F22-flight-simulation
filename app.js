@@ -1,5 +1,6 @@
 class FlightSimulator {
     constructor() {
+        console.log("Initializing Flight Simulator...");
         // Flight parameters with realistic initial values
         this.speed = 250; // knots
         this.altitude = 600; // feet (near buildings)
@@ -35,6 +36,7 @@ class FlightSimulator {
     }
 
     initScene() {
+        console.log("Initializing Scene...");
         this.scene = new THREE.Scene();
         this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.0002);
 
@@ -59,10 +61,12 @@ class FlightSimulator {
     }
 
     loadAircraftModel() {
+        console.log("Loading Aircraft Model...");
         const loader = new THREE.GLTFLoader();
         loader.load(
             'assets/f22_raptor.glb',
             (gltf) => {
+                console.log("Aircraft model loaded successfully.");
                 this.aircraft = gltf.scene;
                 this.aircraft.scale.set(3, 3, 3);
                 this.aircraft.position.set(0, this.altitude * 0.3048, 0); // Convert feet to meters
@@ -80,6 +84,7 @@ class FlightSimulator {
     }
 
     createPlaceholderAircraft() {
+        console.log("Creating placeholder aircraft...");
         const geometry = new THREE.BoxGeometry(20, 5, 30);
         const material = new THREE.MeshPhongMaterial({ color: 0x888888 });
         this.aircraft = new THREE.Mesh(geometry, material);
@@ -89,6 +94,7 @@ class FlightSimulator {
     }
 
     initEnvironment() {
+        console.log("Initializing Environment...");
         // Ground
         const groundGeometry = new THREE.PlaneGeometry(50000, 50000);
         const groundMaterial = new THREE.MeshLambertMaterial({ 
@@ -114,6 +120,7 @@ class FlightSimulator {
     }
 
     createCity(buildingCount, areaSize, maxHeight) {
+        console.log("Creating City...");
         const maxHeightMeters = maxHeight * 0.3048; // Convert feet to meters
         
         // Create a central cluster of buildings
@@ -149,6 +156,7 @@ class FlightSimulator {
     }
 
     createTrees(count, areaSize) {
+        console.log("Creating Trees...");
         const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5);
         const leavesGeometry = new THREE.ConeGeometry(3, 8);
         
@@ -180,6 +188,7 @@ class FlightSimulator {
     }
 
     initControls() {
+        console.log("Initializing Controls...");
         // Mouse controls
         window.addEventListener('mousemove', (e) => {
             this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -282,7 +291,7 @@ class FlightSimulator {
                 case 'ArrowDown': this.pitch = 0; break;
             }
         });
-    }    
+    }
 
     gameLoop() {
         const deltaTime = Math.min(0.1, this.clock.getDelta());
@@ -366,6 +375,7 @@ class FlightSimulator {
     }
 
     initHUD() {
+        console.log("Initializing HUD...");
         this.speedElement = document.getElementById("speed");
         this.altitudeElement = document.getElementById("altitude");
         this.headingElement = document.getElementById("heading");
@@ -374,6 +384,7 @@ class FlightSimulator {
     }
 
     handleResize() {
+        console.log("Handling Resize...");
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
@@ -384,10 +395,6 @@ class FlightSimulator {
 
 // Start the simulator when the page loads
 window.addEventListener('load', () => {
+    console.log("Starting Flight Simulator...");
     const simulator = new FlightSimulator();
     
-    // Only show mobile controls on mobile devices in landscape
-    if ('ontouchstart' in window && window.innerWidth > window.innerHeight) {
-        document.getElementById('mobile-controls').style.display = 'flex';
-    }
-});
