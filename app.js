@@ -60,12 +60,12 @@ class FlightSimulator {
     initScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x87CEEB);
-        this.scene.fog = new THREE.Fog(0x87CEEB, 100, 20000);
+        this.scene.fog = new THREE.Fog(0x87CEEB, 100, 2000);
         this.debug.status = 'Scene initialized';
     }
 
     initCamera() {
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.2, 100);
         this.camera.position.set(0, 150, 200);
         this.debug.status = 'Camera ready';
     }
