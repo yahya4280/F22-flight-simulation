@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>Flight Simulator</title>
+    <title>F-22 Raptor Simulator</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        @media screen and (orientation:portrait) {
+        @media screen and (orientation:portrait) and (max-width: 768px) {
             #orientation-message {
                 display: flex;
             }
@@ -22,9 +20,9 @@
 
     <div id="hud">
         <div>Speed: <span id="speed">250</span> knots</div>
-        <div>Altitude: <span id="altitude">3000</span> ft</div>
+        <div>Altitude: <span id="altitude">700</span> ft</div>
         <div>Heading: <span id="heading">0</span>°</div>
-        <div>Weapon: <span id="weapon">Bullets</span></div>
+        <div>Weapon: <span id="weapon">GUN</span></div>
         <div>Thrust: <span id="thrust">50</span>%</div>
     </div>
     <div id="crosshair"></div>
