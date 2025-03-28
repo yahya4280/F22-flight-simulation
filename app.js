@@ -1,14 +1,14 @@
 class FlightSimulator {
     constructor() {
-        // Realistic flight parameters
+        // Flight parameters with realistic initial values
         this.speed = 250; // knots
-        this.altitude = 700; // feet (spawn point)
+        this.altitude = 600; // feet (near buildings)
         this.heading = 0; // degrees
         this.thrust = 50; // percent
         this.pitch = 0; // degrees
         this.roll = 0; // degrees
         this.yaw = 0; // degrees
-        this.weapon = "GUN"; // GUN or MISSILE
+        this.weapon = "GUN";
         this.isFiring = false;
         this.lastFireTime = 0;
         this.projectiles = [];
@@ -18,14 +18,16 @@ class FlightSimulator {
         this.mouseY = 0;
         this.aircraft = null;
         this.cityObjects = [];
+        this.clock = new THREE.Clock();
+        this.cameraDistance = 50; // Camera distance from aircraft
 
         this.initScene();
         this.initControls();
         this.loadAircraftModel();
         this.initEnvironment();
         this.initHUD();
-        this.gameLoop();
         this.handleResize();
+        this.gameLoop();
     }
 
     initScene() {
@@ -35,6 +37,7 @@ class FlightSimulator {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50000);
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
         document.body.appendChild(this.renderer.domElement);
 
         // Lighting
@@ -44,8 +47,10 @@ class FlightSimulator {
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(100, 500, 100);
         directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 500;
         this.scene.add(directionalLight);
     }
 
@@ -56,12 +61,11 @@ class FlightSimulator {
             (gltf) => {
                 this.aircraft = gltf.scene;
                 this.aircraft.scale.set(3, 3, 3);
-                this.aircraft.position.set(0, this.altitude, 0);
+                this.aircraft.position.set(0, this.altitude * 0.3048, 0); // Convert feet to meters
                 this.scene.add(this.aircraft);
                 
                 // Set initial camera position
-                this.camera.position.set(0, this.altitude + 50, -100);
-                this.camera.lookAt(0, this.altitude, 0);
+                this.updateCameraPosition();
             },
             undefined,
             (error) => {
@@ -75,8 +79,9 @@ class FlightSimulator {
         const geometry = new THREE.BoxGeometry(20, 5, 30);
         const material = new THREE.MeshPhongMaterial({ color: 0x888888 });
         this.aircraft = new THREE.Mesh(geometry, material);
-        this.aircraft.position.set(0, this.altitude, 0);
+        this.aircraft.position.set(0, this.altitude * 0.3048, 0);
         this.scene.add(this.aircraft);
+        this.updateCameraPosition();
     }
 
     initEnvironment() {
@@ -101,11 +106,14 @@ class FlightSimulator {
         this.scene.add(sky);
 
         // Create city with buildings (max height 500ft)
-        this.createCity(100, 50000, 500);
+        this.createCity(50, 10000, 500);
     }
 
     createCity(buildingCount, areaSize, maxHeight) {
         const maxHeightMeters = maxHeight * 0.3048; // Convert feet to meters
+        
+        // Create a central cluster of buildings
+        const clusterSize = areaSize / 4;
         
         for (let i = 0; i < buildingCount; i++) {
             const width = 20 + Math.random() * 80;
@@ -114,30 +122,31 @@ class FlightSimulator {
             
             const geometry = new THREE.BoxGeometry(width, height, depth);
             const material = new THREE.MeshLambertMaterial({ 
-                color: Math.random() * 0xffffff 
+                color: Math.random() * 0x808080 + 0x808080 // Grayscale colors
             });
             
             const building = new THREE.Mesh(geometry, material);
             building.castShadow = true;
             building.receiveShadow = true;
             
+            // Position buildings in a cluster near the center
             building.position.set(
-                (Math.random() - 0.5) * areaSize,
+                (Math.random() - 0.5) * clusterSize,
                 height / 2,
-                (Math.random() - 0.5) * areaSize
+                (Math.random() - 0.5) * clusterSize
             );
             
             this.scene.add(building);
             this.cityObjects.push(building);
         }
 
-        // Add some trees
-        this.createTrees(200, areaSize);
+        // Add some trees around the buildings
+        this.createTrees(100, clusterSize * 2);
     }
 
     createTrees(count, areaSize) {
-        const trunkGeometry = new THREE.CylinderGeometry(1, 1, 5);
-        const leavesGeometry = new THREE.ConeGeometry(4, 10);
+        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5);
+        const leavesGeometry = new THREE.ConeGeometry(3, 8);
         
         const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
         const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
@@ -146,17 +155,19 @@ class FlightSimulator {
             const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
             const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
             
-            leaves.position.y = 7.5;
+            leaves.position.y = 5;
             
             const tree = new THREE.Group();
             tree.add(trunk);
             tree.add(leaves);
             
-            tree.position.set(
-                (Math.random() - 0.5) * areaSize,
-                0,
-                (Math.random() - 0.5) * areaSize
-            );
+            // Position trees around the buildings
+            const angle = Math.random() * Math.PI * 2;
+            const distance = clusterSize + Math.random() * (areaSize - clusterSize);
+            const x = Math.cos(angle) * distance;
+            const z = Math.sin(angle) * distance;
+            
+            tree.position.set(x, 0, z);
             
             tree.castShadow = true;
             this.scene.add(tree);
@@ -239,96 +250,87 @@ class FlightSimulator {
             document.getElementById('thrust').textContent = this.thrust;
         });
 
-        // Keyboard controls
+        // Keyboard controls for additional movement
         window.addEventListener('keydown', (e) => {
             switch(e.key) {
                 case 'w': this.thrust = Math.min(100, this.thrust + 5); break;
                 case 's': this.thrust = Math.max(0, this.thrust - 5); break;
+                case 'a': this.yaw = -1; break; // Left yaw
+                case 'd': this.yaw = 1; break;  // Right yaw
+                case 'q': this.roll = -1; break; // Left roll
+                case 'e': this.roll = 1; break;  // Right roll
                 case '1': this.weapon = "GUN"; break;
                 case '2': this.weapon = "MISSILE"; break;
+                case 'ArrowUp': this.pitch = 1; break;    // Nose up
+                case 'ArrowDown': this.pitch = -1; break; // Nose down
             }
             document.getElementById('weapon').textContent = this.weapon;
             document.getElementById('thrust').textContent = this.thrust;
         });
-    }
 
-    initHUD() {
-        this.speedElement = document.getElementById("speed");
-        this.altitudeElement = document.getElementById("altitude");
-        this.headingElement = document.getElementById("heading");
-        this.weaponElement = document.getElementById("weapon");
-        this.thrustElement = document.getElementById("thrust");
-    }
-
-    fireProjectile() {
-        if (!this.isFiring || !this.aircraft) return;
-        
-        const now = Date.now();
-        const fireRate = this.weapon === "GUN" ? 100 : 1000; // ms between shots
-        
-        if (now - this.lastFireTime < fireRate) return;
-        this.lastFireTime = now;
-
-        const geometry = this.weapon === "GUN" 
-            ? new THREE.SphereGeometry(0.5) 
-            : new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
-        
-        const material = new THREE.MeshLambertMaterial({
-            color: this.weapon === "GUN" ? 0xffff00 : 0xff0000
+        window.addEventListener('keyup', (e) => {
+            switch(e.key) {
+                case 'a': 
+                case 'd': this.yaw = 0; break;
+                case 'q': 
+                case 'e': this.roll = 0; break;
+                case 'ArrowUp': 
+                case 'ArrowDown': this.pitch = 0; break;
+            }
         });
-        
-        const projectile = new THREE.Mesh(geometry, material);
-        
-        // Position projectile at aircraft nose
-        const nosePosition = new THREE.Vector3(0, 0, 15);
-        nosePosition.applyMatrix4(this.aircraft.matrixWorld);
-        projectile.position.copy(nosePosition);
-        
-        // Set rotation to match aircraft
-        projectile.rotation.copy(this.aircraft.rotation);
-        
-        // Calculate velocity vector
-        const velocity = new THREE.Vector3(0, 0, -1);
-        velocity.applyQuaternion(this.aircraft.quaternion);
-        velocity.multiplyScalar(this.weapon === "GUN" ? 100 : 50);
-        
-        projectile.userData = {
-            velocity: velocity,
-            damage: this.weapon === "GUN" ? 10 : 50,
-            isMissile: this.weapon === "MISSILE",
-            lifetime: 0
-        };
-        
-        this.scene.add(projectile);
-        this.projectiles.push(projectile);
     }
 
-    updateAircraft(deltaTime) {
+    updateCameraPosition() {
         if (!this.aircraft) return;
+        
+        // Position camera behind and above the aircraft
+        const cameraOffset = new THREE.Vector3(0, 5, -this.cameraDistance);
+        cameraOffset.applyQuaternion(this.aircraft.quaternion);
+        cameraOffset.add(this.aircraft.position);
+        
+        this.camera.position.copy(cameraOffset);
+        this.camera.lookAt(this.aircraft.position);
+    }
 
+    gameLoop() {
+        const deltaTime = Math.min(0.1, this.clock.getDelta());
+        
+        if (this.aircraft) {
+            // Update aircraft physics
+            this.updateAircraftPhysics(deltaTime);
+            
+            // Update camera position
+            this.updateCameraPosition();
+        }
+        
+        // Update projectiles
+        this.updateProjectiles(deltaTime);
+        
+        // Render scene
+        this.renderer.render(this.scene, this.camera);
+        
+        // Continue loop
+        requestAnimationFrame(() => this.gameLoop());
+    }
+
+    updateAircraftPhysics(deltaTime) {
         // Convert thrust to speed with realistic acceleration
         const targetSpeed = this.thrust * 5; // Max 500 knots
         this.speed += (targetSpeed - this.speed) * 0.02 * deltaTime;
         
-        // Calculate control inputs with realistic response
-        const maxPitchRate = 20 * deltaTime; // degrees per second
-        const maxRollRate = 50 * deltaTime;
-        const maxYawRate = 10 * deltaTime;
-        
         // Apply control inputs
-        this.pitch = THREE.MathUtils.clamp(this.mouseY * 30, -30, 30);
-        this.roll = THREE.MathUtils.clamp(this.mouseX * 45, -45, 45);
+        const pitchChange = this.mouseY * 30 + this.pitch * 10;
+        const rollChange = this.mouseX * 45 + this.roll * 20;
+        const yawChange = this.yaw * 10;
         
-        // Calculate aircraft rotation with realistic physics
-        const pitchChange = this.pitch - this.aircraft.rotation.x;
-        const rollChange = this.roll - this.aircraft.rotation.z;
+        // Update aircraft rotation
+        this.aircraft.rotation.x += pitchChange * 0.01 * deltaTime;
+        this.aircraft.rotation.z += rollChange * 0.01 * deltaTime;
+        this.aircraft.rotation.y += yawChange * 0.01 * deltaTime;
         
-        this.aircraft.rotation.x += pitchChange * 0.1 * deltaTime;
-        this.aircraft.rotation.z += rollChange * 0.2 * deltaTime;
-        
-        // Yaw is affected by roll (coordinated turn)
-        this.yaw = this.aircraft.rotation.z * 0.2;
-        this.aircraft.rotation.y += this.yaw * deltaTime;
+        // Clamp rotations for realism
+        this.aircraft.rotation.x = THREE.MathUtils.clamp(this.aircraft.rotation.x, -0.5, 0.5);
+        this.aircraft.rotation.z = THREE.MathUtils.clamp(this.aircraft.rotation.z, -0.5, 0.5);
         
         // Update altitude based on pitch
         const climbRate = Math.sin(this.aircraft.rotation.x) * this.speed * 0.1;
@@ -349,16 +351,6 @@ class FlightSimulator {
         this.speedElement.textContent = Math.round(this.speed);
         this.altitudeElement.textContent = Math.round(this.altitude);
         this.headingElement.textContent = Math.round(this.heading);
-        
-        // Check for collisions
-        this.checkCollisions();
-    }
-
-    checkCollisions() {
-        if (this.altitude <= 0) {
-            this.altitude = 0;
-            this.speed *= 0.95; // Slow down when hitting ground
-        }
     }
 
     updateProjectiles(deltaTime) {
@@ -377,23 +369,19 @@ class FlightSimulator {
             
             // Check lifetime
             p.userData.lifetime += deltaTime;
-            if (p.userData.lifetime > 5) { // 5 second lifetime
+            if (p.userData.lifetime > 5) {
                 this.scene.remove(p);
                 this.projectiles.splice(i, 1);
             }
         }
     }
 
-    updateCamera() {
-        if (!this.aircraft) return;
-        
-        // Camera follows aircraft from behind
-        const cameraOffset = new THREE.Vector3(0, 5, -20);
-        cameraOffset.applyQuaternion(this.aircraft.quaternion);
-        cameraOffset.add(this.aircraft.position);
-        
-        this.camera.position.lerp(cameraOffset, 0.1);
-        this.camera.quaternion.slerp(this.aircraft.quaternion, 0.1);
+    initHUD() {
+        this.speedElement = document.getElementById("speed");
+        this.altitudeElement = document.getElementById("altitude");
+        this.headingElement = document.getElementById("heading");
+        this.weaponElement = document.getElementById("weapon");
+        this.thrustElement = document.getElementById("thrust");
     }
 
     handleResize() {
@@ -403,22 +391,9 @@ class FlightSimulator {
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
     }
-
-    gameLoop() {
-        const deltaTime = Math.min(0.1, clock.getDelta()); // Cap delta time
-        
-        this.updateAircraft(deltaTime);
-        this.fireProjectile();
-        this.updateProjectiles(deltaTime);
-        this.updateCamera();
-        
-        this.renderer.render(this.scene, this.camera);
-        requestAnimationFrame(() => this.gameLoop());
-    }
 }
 
-// Start the simulator
-const clock = new THREE.Clock();
+// Start the simulator when the page loads
 window.addEventListener('load', () => {
     const simulator = new FlightSimulator();
     
