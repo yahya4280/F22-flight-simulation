@@ -21,6 +21,10 @@ class FlightSimulator {
         this.clock = new THREE.Clock();
         this.cameraDistance = 50; // Camera distance from aircraft
 
+        this.previousPitch = 0; // Initialize previousPitch
+        this.previousRoll = 0; // Initialize previousRoll
+        this.previousYaw = 0; // Initialize previousYaw
+
         this.initScene();
         this.initControls();
         this.loadAircraftModel();
@@ -304,8 +308,8 @@ class FlightSimulator {
     updateCameraPosition() {
         if (!this.aircraft) return;
         
-        // Position camera 30 units back and 10 units up from aircraft
-        const cameraOffset = new THREE.Vector3(0, 10, -30);
+        // Position camera 50 units back and 10 units up from aircraft for better view
+        const cameraOffset = new THREE.Vector3(0, 10, -50);
         cameraOffset.applyQuaternion(this.aircraft.quaternion);
         cameraOffset.add(this.aircraft.position);
         
@@ -322,10 +326,10 @@ class FlightSimulator {
 
     updateAircraftPhysics(deltaTime) {
         // Reduced sensitivity factors
-        const SENSITIVITY = 0.5;
-        const PITCH_SENSITIVITY = 0.3;
-        const ROLL_SENSITIVITY = 0.4;
-        const YAW_SENSITIVITY = 0.2;
+        const SENSITIVITY = 0.3;
+        const PITCH_SENSITIVITY = 0.2;
+        const ROLL_SENSITIVITY = 0.3;
+        const YAW_SENSITIVITY = 0.1;
 
         // Smoother input processing with dead zone
         const deadZone = 0.1;
@@ -355,8 +359,6 @@ class FlightSimulator {
         this.previousPitch = pitchInput;
         this.previousRoll = rollInput;
         this.previousYaw = yawInput;
-
-        // ... rest of physics calculations remain same ...
     }
 
     lerp(a, b, t) {
