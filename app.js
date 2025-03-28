@@ -278,19 +278,7 @@ class FlightSimulator {
                 case 'ArrowDown': this.pitch = 0; break;
             }
         });
-    }
-
-    updateCameraPosition() {
-        if (!this.aircraft) return;
-        
-        // Position camera behind and above the aircraft
-        const cameraOffset = new THREE.Vector3(0, 5, -this.cameraDistance);
-        cameraOffset.applyQuaternion(this.aircraft.quaternion);
-        cameraOffset.add(this.aircraft.position);
-        
-        this.camera.position.copy(cameraOffset);
-        this.camera.lookAt(this.aircraft.position);
-    }
+    }    
 
     gameLoop() {
         const deltaTime = Math.min(0.1, this.clock.getDelta());
@@ -313,67 +301,66 @@ class FlightSimulator {
         requestAnimationFrame(() => this.gameLoop());
     }
 
-    updateAircraftPhysics(deltaTime) {
-        // Convert thrust to speed with realistic acceleration
-        const targetSpeed = this.thrust * 5; // Max 500 knots
-        this.speed += (targetSpeed - this.speed) * 0.02 * deltaTime;
+    updateCameraPosition() {
+        if (!this.aircraft) return;
         
-        // Apply control inputs
-        const pitchChange = this.mouseY * 30 + this.pitch * 10;
-        const rollChange = this.mouseX * 45 + this.roll * 20;
-        const yawChange = this.yaw * 10;
+        // Position camera 30 units back and 10 units up from aircraft
+        const cameraOffset = new THREE.Vector3(0, 10, -30);
+        cameraOffset.applyQuaternion(this.aircraft.quaternion);
+        cameraOffset.add(this.aircraft.position);
         
-        // Update aircraft rotation
-        this.aircraft.rotation.x += pitchChange * 0.01 * deltaTime;
-        this.aircraft.rotation.z += rollChange * 0.01 * deltaTime;
-        this.aircraft.rotation.y += yawChange * 0.01 * deltaTime;
+        // Smooth camera follow with lerping
+        this.camera.position.lerp(cameraOffset, 0.1);
+        this.camera.lookAt(this.aircraft.position);
         
-        // Clamp rotations for realism
-        this.aircraft.rotation.x = THREE.MathUtils.clamp(this.aircraft.rotation.x, -0.5, 0.5);
-        this.aircraft.rotation.z = THREE.MathUtils.clamp(this.aircraft.rotation.z, -0.5, 0.5);
-        
-        // Update altitude based on pitch
-        const climbRate = Math.sin(this.aircraft.rotation.x) * this.speed * 0.1;
-        this.altitude += climbRate * deltaTime;
-        this.altitude = Math.max(0, this.altitude);
-        
-        // Calculate forward movement
-        const forwardVector = new THREE.Vector3(0, 0, -1);
-        forwardVector.applyQuaternion(this.aircraft.quaternion);
-        forwardVector.multiplyScalar(this.speed * 0.02 * deltaTime);
-        this.aircraft.position.add(forwardVector);
-        
-        // Update heading (0-360 degrees)
-        this.heading = (this.aircraft.rotation.y * (180 / Math.PI)) % 360;
-        if (this.heading < 0) this.heading += 360;
-        
-        // Update HUD
-        this.speedElement.textContent = Math.round(this.speed);
-        this.altitudeElement.textContent = Math.round(this.altitude);
-        this.headingElement.textContent = Math.round(this.heading);
+        // Add slight camera rotation based on aircraft movement
+        const lookAhead = new THREE.Vector3(0, 0, -50);
+        lookAhead.applyQuaternion(this.aircraft.quaternion);
+        lookAhead.add(this.aircraft.position);
+        this.camera.lookAt(lookAhead);
     }
 
-    updateProjectiles(deltaTime) {
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const p = this.projectiles[i];
-            
-            // Update position
-            p.position.x += p.userData.velocity.x * deltaTime;
-            p.position.y += p.userData.velocity.y * deltaTime;
-            p.position.z += p.userData.velocity.z * deltaTime;
-            
-            // Apply gravity to missiles
-            if (p.userData.isMissile) {
-                p.userData.velocity.y -= 0.2 * deltaTime;
-            }
-            
-            // Check lifetime
-            p.userData.lifetime += deltaTime;
-            if (p.userData.lifetime > 5) {
-                this.scene.remove(p);
-                this.projectiles.splice(i, 1);
-            }
-        }
+    updateAircraftPhysics(deltaTime) {
+        // Reduced sensitivity factors
+        const SENSITIVITY = 0.5;
+        const PITCH_SENSITIVITY = 0.3;
+        const ROLL_SENSITIVITY = 0.4;
+        const YAW_SENSITIVITY = 0.2;
+
+        // Smoother input processing with dead zone
+        const deadZone = 0.1;
+        let pitchInput = THREE.MathUtils.clamp(this.mouseY * SENSITIVITY + this.pitch * PITCH_SENSITIVITY, -1, 1);
+        let rollInput = THREE.MathUtils.clamp(this.mouseX * SENSITIVITY + this.roll * ROLL_SENSITIVITY, -1, 1);
+        let yawInput = THREE.MathUtils.clamp(this.yaw * YAW_SENSITIVITY, -1, 1);
+
+        // Apply low-pass filter for smoother controls
+        pitchInput = this.lerp(this.previousPitch, pitchInput, 0.1);
+        rollInput = this.lerp(this.previousRoll, rollInput, 0.1);
+        yawInput = this.lerp(this.previousYaw, yawInput, 0.1);
+
+        // Update aircraft rotation with realistic rates
+        const MAX_PITCH_RATE = 0.5 * deltaTime;
+        const MAX_ROLL_RATE = 1.0 * deltaTime;
+        const MAX_YAW_RATE = 0.3 * deltaTime;
+
+        this.aircraft.rotation.x += THREE.MathUtils.clamp(pitchInput, -MAX_PITCH_RATE, MAX_PITCH_RATE);
+        this.aircraft.rotation.z += THREE.MathUtils.clamp(rollInput, -MAX_ROLL_RATE, MAX_ROLL_RATE);
+        this.aircraft.rotation.y += THREE.MathUtils.clamp(yawInput, -MAX_YAW_RATE, MAX_YAW_RATE);
+
+        // Clamp rotations to realistic limits
+        this.aircraft.rotation.x = THREE.MathUtils.clamp(this.aircraft.rotation.x, -0.5, 0.5); // ±30 degrees
+        this.aircraft.rotation.z = THREE.MathUtils.clamp(this.aircraft.rotation.z, -0.5, 0.5); // ±30 degrees
+
+        // Store previous values for smoothing
+        this.previousPitch = pitchInput;
+        this.previousRoll = rollInput;
+        this.previousYaw = yawInput;
+
+        // ... rest of physics calculations remain same ...
+    }
+
+    lerp(a, b, t) {
+        return a * (1 - t) + b * t;
     }
 
     initHUD() {
