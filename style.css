@@ -1,0 +1,72 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    touch-action: none;
+}
+
+canvas {
+    display: block;
+}
+
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+#hud div {
+    margin: 5px 0;
+}
+
+#crosshair {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: red;
+    border: 2px solid white;
+    border-radius: 50%;
+    z-index: 20;
+}
+
+#mobile-controls {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    z-index: 100;
+    display: none;
+}
+
+.control {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    color: white;
+    margin: 10px;
+    user-select: none;
+}
+
+.thrust-up {
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    #mobile-controls {
+        display: flex;
+        flex-direction: column;
+    }
+}
