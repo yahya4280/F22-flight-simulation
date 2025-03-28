@@ -1,5 +1,9 @@
 class FlightSimulator {
     constructor() {
+        // Initialize critical systems first
+        this.thrust = 0; // Crucial initialization added
+        this.aircraft = null;
+
         // Debug system initialization
         this.debug = {
             errors: 0,
@@ -68,11 +72,10 @@ class FlightSimulator {
             this.camera = new THREE.PerspectiveCamera(
                 75,
                 window.innerWidth / window.innerHeight,
-                1,    // Near plane
-                100000 // Far plane
+                1,
+                100000
             );
             this.camera.position.set(0, 200, 500);
-            this.camera.lookAt(0, 0, 0);
             this.debug.status = 'Camera initialized';
             this.debug.update();
         } catch (error) {
@@ -138,8 +141,8 @@ class FlightSimulator {
                         
                         // Transformations
                         this.aircraft.scale.set(3, 3, 3);
-                        this.aircraft.position.set(0, 700 * 0.3048, 0); // Convert feet to meters
-                        this.aircraft.rotation.y = Math.PI; // Face forward
+                        this.aircraft.position.set(0, 700 * 0.3048, 0);
+                        this.aircraft.rotation.y = Math.PI;
                         
                         // Debug visualization
                         const bbox = new THREE.BoxHelper(this.aircraft, 0xffff00);
@@ -205,7 +208,7 @@ class FlightSimulator {
         try {
             // Ground plane
             const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(10000, 10000),
+                new THREE.PlaneGeometry(100000, 100000),
                 new THREE.MeshLambertMaterial({ color: 0x3a5f0b })
             );
             ground.rotation.x = -Math.PI / 2;
@@ -214,10 +217,10 @@ class FlightSimulator {
             this.scene.add(ground);
 
             // City buildings
-            this.createCity(50, 5000, 500);
+            this.createCity(150, 50000, 500);
             
             // Debug grid
-            const grid = new THREE.GridHelper(5000, 100, 0x444444, 0x888888);
+            const grid = new THREE.GridHelper(50000, 100, 0x444444, 0x888888);
             grid.name = 'Debug_Grid';
             this.scene.add(grid);
 
@@ -235,9 +238,9 @@ class FlightSimulator {
             for (let i = 0; i < buildingCount; i++) {
                 const building = new THREE.Mesh(
                     new THREE.BoxGeometry(
-                        20 + Math.random() * 80,  // Width
-                        10 + Math.random() * maxHeightMeters, // Height
-                        20 + Math.random() * 80   // Depth
+                        50 + Math.random() * 150,
+                        20 + Math.random() * maxHeightMeters,
+                        50 + Math.random() * 150
                     ),
                     new THREE.MeshLambertMaterial({ color: 0x808080 })
                 );
@@ -265,7 +268,6 @@ class FlightSimulator {
 
     initControls() {
         try {
-            // Thrust controls
             const updateThrust = (delta) => {
                 this.thrust = THREE.MathUtils.clamp(this.thrust + delta, 0, 100);
                 this.updateHUD();
@@ -306,7 +308,6 @@ class FlightSimulator {
                 thrust: document.getElementById('thrust')
             };
 
-            // Initial update
             this.updateHUD();
             this.debug.status = 'HUD operational';
             this.debug.update();
@@ -320,7 +321,7 @@ class FlightSimulator {
     updateHUD() {
         try {
             if (this.aircraft) {
-                this.hudElements.speed.textContent = Math.round(this.thrust * 5);
+                this.hudElements.speed.textContent = Math.round(this.thrust * 50);
                 this.hudElements.altitude.textContent = Math.round(this.aircraft.position.y / 0.3048);
                 this.hudElements.heading.textContent = Math.round(THREE.MathUtils.radToDeg(this.aircraft.rotation.y) % 360);
                 this.hudElements.thrust.textContent = this.thrust;
@@ -338,22 +339,21 @@ class FlightSimulator {
         try {
             requestAnimationFrame(() => this.animate());
             
-            // Basic animation
             if (this.aircraft) {
-                this.aircraft.position.z -= this.thrust * 0.1;
-                this.aircraft.rotation.y += 0.01;
+                // Fixed movement direction with proper thrust initialization
+                this.aircraft.position.z -= this.thrust * 0.5;
+                this.aircraft.rotation.y += 0.001;
             }
 
-            // Camera follow
+            // Camera follow with boundary checks
             if (this.aircraft) {
-                this.camera.position.lerp(
-                    new THREE.Vector3(
-                        this.aircraft.position.x,
-                        this.aircraft.position.y + 100,
-                        this.aircraft.position.z + 200
-                    ),
-                    0.1
+                const targetPosition = new THREE.Vector3(
+                    this.aircraft.position.x,
+                    this.aircraft.position.y + 100,
+                    this.aircraft.position.z + 200
                 );
+                
+                this.camera.position.lerp(targetPosition, 0.1);
                 this.camera.lookAt(this.aircraft.position);
             }
 
@@ -370,7 +370,6 @@ class FlightSimulator {
 
     addTestObjects() {
         try {
-            // Test cube (always visible)
             const testCube = new THREE.Mesh(
                 new THREE.BoxGeometry(10, 10, 10),
                 new THREE.MeshBasicMaterial({ color: 0x00ff00 })
@@ -396,7 +395,7 @@ class FlightSimulator {
 window.addEventListener('load', () => {
     try {
         new FlightSimulator();
-        console.log('%c=== SIMULATOR LAUNCHED ===', 'color: green; font-weight: bold;');
+        console.log('%c=== SIMULATOR OPERATIONAL ===', 'color: green; font-weight: bold;');
     } catch (error) {
         document.body.innerHTML = `<h1 style="color: red">CRASH: ${error.message}</h1>`;
         console.error('Launch failure:', error);
