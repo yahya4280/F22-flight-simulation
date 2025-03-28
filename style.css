@@ -1,7 +1,29 @@
 body {
     margin: 0;
+    padding: 0;
     overflow: hidden;
     touch-action: none;
+    background-color: #000;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+#orientation-message {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    font-size: 24px;
+    text-align: center;
+    flex-direction: column;
 }
 
 canvas {
@@ -14,15 +36,16 @@ canvas {
     left: 10px;
     color: white;
     font-family: Arial, sans-serif;
-    font-size: 18px;
+    font-size: 14px;
     z-index: 10;
     background: rgba(0, 0, 0, 0.5);
     padding: 10px;
     border-radius: 8px;
+    pointer-events: none;
 }
 
 #hud div {
-    margin: 5px 0;
+    margin: 3px 0;
 }
 
 #crosshair {
@@ -36,37 +59,92 @@ canvas {
     border: 2px solid white;
     border-radius: 50%;
     z-index: 20;
+    pointer-events: none;
 }
 
+/* Mobile Controls */
 #mobile-controls {
+    position: fixed;
+    width: 100%;
+    height: 30%;
+    bottom: 0;
+    left: 0;
+    display: none;
+    z-index: 50;
+}
+
+.joystick-container {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+}
+
+.joystick {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    left: 25px;
+    top: 25px;
+    touch-action: none;
+}
+
+.action-buttons {
     position: absolute;
     right: 20px;
     bottom: 20px;
-    z-index: 100;
-    display: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.thrust-controls {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
 .control {
-    width: 60px;
-    height: 60px;
+    padding: 12px 20px;
     background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 24px;
+    border-radius: 8px;
+    margin: 5px;
     color: white;
-    margin: 10px;
+    font-size: 14px;
+    text-align: center;
     user-select: none;
+    touch-action: none;
+}
+
+.fire-btn {
+    background: rgba(255, 0, 0, 0.5);
+}
+
+.weapon-btn {
+    background: rgba(0, 0, 255, 0.5);
 }
 
 .thrust-up {
-    margin-bottom: 20px;
+    background: rgba(0, 255, 0, 0.3);
 }
 
-@media (max-width: 768px) {
+.thrust-down {
+    background: rgba(255, 255, 0, 0.3);
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
     #mobile-controls {
-        display: flex;
-        flex-direction: column;
+        display: block;
+    }
+    
+    #hud {
+        font-size: 12px;
+        padding: 8px;
     }
 }
