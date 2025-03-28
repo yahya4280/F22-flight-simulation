@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Flight Simulator</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        @media screen and (orientation:portrait) {
+            #orientation-message {
+                display: flex;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div id="orientation-message">
+        <p>Please rotate your device to landscape mode</p>
+    </div>
+
     <div id="hud">
         <div>Speed: <span id="speed">250</span> knots</div>
         <div>Altitude: <span id="altitude">3000</span> ft</div>
@@ -15,10 +28,22 @@
         <div>Thrust: <span id="thrust">50</span>%</div>
     </div>
     <div id="crosshair"></div>
+    
+    <!-- Mobile Controls -->
     <div id="mobile-controls">
-        <div class="control thrust-up" id="thrust-up">↑</div>
-        <div class="control thrust-down" id="thrust-down">↓</div>
+        <div class="joystick-container">
+            <div id="joystick" class="joystick"></div>
+        </div>
+        <div class="action-buttons">
+            <div class="control fire-btn" id="fire-btn">FIRE</div>
+            <div class="control weapon-btn" id="weapon-btn">SWITCH WEAPON</div>
+        </div>
+        <div class="thrust-controls">
+            <div class="control thrust-up" id="thrust-up">↑ THRUST</div>
+            <div class="control thrust-down" id="thrust-down">↓ THRUST</div>
+        </div>
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="app.js"></script>
