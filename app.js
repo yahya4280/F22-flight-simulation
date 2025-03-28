@@ -65,7 +65,7 @@ class FlightSimulator {
     }
 
     initCamera() {
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 1, 100000);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.2, 1000);
         this.camera.position.set(0, 150, 200);
         this.debug.status = 'Camera ready';
     }
