@@ -1,22 +1,26 @@
 class FlightSimulator {
     constructor() {
-        // System state initialization
-        this.thrust = 50;
+        this.thrust = 50; // % power
         this.aircraft = null;
+        this.velocity = new THREE.Vector3(0, 0, -50); // initial forward speed
+        this.mass = 12000; // kg (approx F22 empty weight)
+        this.area = 78; // m² wing area
+        this.liftCoeff = 1.0;
+        this.dragCoeff = 0.02;
+
         this.joystickActive = false;
-        this.joystickPosition = { x: 0, y: 0 };
-        this.pitch = 0;
         this.roll = 0;
+        this.pitch = 0;
         this.yaw = 0;
+
         this.currentWeapon = 0;
         this.weapons = ['GUN', 'MISSILE', 'BOMB'];
 
-        // Debug system
+        // Debug
         this.debug = {
             errors: 0,
             warnings: 0,
             status: 'Booting...',
-            log: [],
             update: () => {
                 document.getElementById('debug-status').textContent = this.debug.status;
                 document.getElementById('debug-errors').textContent = this.debug.errors;
@@ -25,7 +29,6 @@ class FlightSimulator {
         };
 
         try {
-            // Core initialization
             this.verifyWebGL();
             this.initScene();
             this.initCamera();
@@ -35,10 +38,8 @@ class FlightSimulator {
             this.initEnvironment();
             this.initControls();
             this.initHUD();
-            
-            // Start systems
             this.animate();
-            
+
             this.debug.status = 'Systems operational';
             this.debug.update();
         } catch (error) {
@@ -46,13 +47,9 @@ class FlightSimulator {
         }
     }
 
-    // ======================
-    // Core Systems
-    // ======================
-
     verifyWebGL() {
         const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const gl = canvas.getContext('webgl');
         if (!gl) throw new Error('WebGL not supported');
         this.debug.status = 'WebGL verified';
     }
@@ -60,37 +57,26 @@ class FlightSimulator {
     initScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x87CEEB);
-        this.scene.fog = new THREE.Fog(0x87CEEB, 100, 2000);
-        this.debug.status = 'Scene initialized';
+        this.scene.fog = new THREE.Fog(0x87CEEB, 500, 5000);
     }
 
     initCamera() {
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 1, 100000);
-        this.camera.position.set(0, 3, -10);  // Closer to the aircraft
-        this.camera.lookAt(0, 0, 20);  // Looking ahead of the aircraft
-        this.debug.status = 'Camera ready';
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000);
+        this.camera.position.set(0, 3, -10);
     }
 
     initRenderer() {
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
         document.body.appendChild(this.renderer.domElement);
-        this.debug.status = 'Renderer active';
     }
 
     initLighting() {
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-        const directional = new THREE.DirectionalLight(0xffffff, 0.8);
-        directional.position.set(100, 500, 100);
-        directional.castShadow = true;
-        this.scene.add(ambient, directional);
-        this.debug.status = 'Lighting configured';
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+        sun.position.set(1000, 2000, 1000);
+        this.scene.add(ambient, sun);
     }
-
-    // ======================
-    // Aircraft System
-    // ======================
 
     loadAircraftModel() {
         const loader = new THREE.GLTFLoader();
@@ -99,37 +85,41 @@ class FlightSimulator {
             (gltf) => {
                 this.aircraft = gltf.scene;
                 this.aircraft.scale.set(3, 3, 3);
-                this.aircraft.position.set(0, 700 * 0.3048, 0);
+                this.aircraft.position.set(0, 2000, 0);
                 this.aircraft.rotation.y = Math.PI;
                 this.scene.add(this.aircraft);
                 this.debug.status = 'Aircraft loaded';
             },
             undefined,
-            (error) => this.handleModelError(error)
+            () => this.handleModelError()
         );
     }
 
-    handleModelError(error) {
+    handleModelError() {
         this.debug.errors++;
-        this.debug.status = 'Model error - Using placeholder';
-        const geometry = new THREE.BoxGeometry(20, 5, 30);
-        const material = new THREE.MeshPhongMaterial({ color: 0xff0000, wireframe: true });
-        this.aircraft = new THREE.Mesh(geometry, material);
+        const geom = new THREE.BoxGeometry(20, 5, 30);
+        const mat = new THREE.MeshPhongMaterial({ color: 0xff0000, wireframe: true });
+        this.aircraft = new THREE.Mesh(geom, mat);
+        this.aircraft.position.set(0, 2000, 0);
         this.scene.add(this.aircraft);
+        this.debug.status = 'Model error - placeholder active';
     }
 
-    // ======================
-    // Mobile Controls
-    // ======================
+    initEnvironment() {
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(20000, 20000, 10, 10),
+            new THREE.MeshLambertMaterial({ color: 0x228B22 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        this.scene.add(ground);
+    }
 
     initControls() {
         const joystick = document.getElementById('joystick');
         const container = document.querySelector('.joystick-container');
         let touchId = null;
 
-        // Joystick Handling
         container.addEventListener('touchstart', (e) => {
-            e.preventDefault();
             if (!touchId) {
                 touchId = e.touches[0].identifier;
                 this.handleJoystickStart(e.touches[0].clientX, e.touches[0].clientY);
@@ -139,10 +129,7 @@ class FlightSimulator {
         document.addEventListener('touchmove', (e) => {
             if (!this.joystickActive) return;
             const touch = Array.from(e.touches).find(t => t.identifier === touchId);
-            if (touch) {
-                e.preventDefault();
-                this.handleJoystickMove(touch.clientX, touch.clientY);
-            }
+            if (touch) this.handleJoystickMove(touch.clientX, touch.clientY);
         }, { passive: false });
 
         document.addEventListener('touchend', (e) => {
@@ -152,62 +139,41 @@ class FlightSimulator {
             }
         }, { passive: false });
 
-        // Action Buttons
-        document.getElementById('fire-btn').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.fireWeapon();
-        });
+        document.getElementById('fire-btn').addEventListener('touchstart', () => this.fireWeapon());
+        document.getElementById('weapon-btn').addEventListener('touchstart', () => this.switchWeapon());
 
-        document.getElementById('weapon-btn').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.switchWeapon();
-        });
-
-        // Thrust Controls
         const updateThrust = (delta) => {
             this.thrust = THREE.MathUtils.clamp(this.thrust + delta, 0, 100);
             this.updateHUD();
         };
-
-        document.getElementById('thrust-up').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            updateThrust(5);
-        });
-
-        document.getElementById('thrust-down').addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            updateThrust(-5);
-        });
-
-        this.debug.status = 'Controls initialized';
+        document.getElementById('thrust-up').addEventListener('touchstart', () => updateThrust(5));
+        document.getElementById('thrust-down').addEventListener('touchstart', () => updateThrust(-5));
     }
 
-    handleJoystickStart(clientX, clientY) {
+    handleJoystickStart(x, y) {
         const rect = document.querySelector('.joystick-container').getBoundingClientRect();
-        this.joystickBaseX = rect.left + rect.width/2;
-        this.joystickBaseY = rect.top + rect.height/2;
+        this.joystickBaseX = rect.left + rect.width / 2;
+        this.joystickBaseY = rect.top + rect.height / 2;
         this.joystickActive = true;
-        this.handleJoystickMove(clientX, clientY);
+        this.handleJoystickMove(x, y);
     }
 
-    handleJoystickMove(clientX, clientY) {
-        const deltaX = clientX - this.joystickBaseX;
-        const deltaY = clientY - this.joystickBaseY;
-        const distance = Math.min(Math.sqrt(deltaX**2 + deltaY**2), 50);
-        const angle = Math.atan2(deltaY, deltaX);
+    handleJoystickMove(x, y) {
+        const dx = x - this.joystickBaseX;
+        const dy = y - this.joystickBaseY;
+        const dist = Math.min(Math.sqrt(dx ** 2 + dy ** 2), 50);
+        const angle = Math.atan2(dy, dx);
 
-        document.getElementById('joystick').style.transform = 
-            `translate(${Math.cos(angle)*distance}px, ${Math.sin(angle)*distance}px)`;
-
-        this.roll = THREE.MathUtils.clamp(deltaX / 50, -1, 1);
-        this.pitch = THREE.MathUtils.clamp(deltaY / 50, -1, 1);
+        document.getElementById('joystick').style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+        this.roll = THREE.MathUtils.clamp(dx / 50, -1, 1);
+        this.pitch = THREE.MathUtils.clamp(dy / 50, -1, 1);
     }
 
     handleJoystickEnd() {
         this.joystickActive = false;
         this.roll = 0;
         this.pitch = 0;
-        document.getElementById('joystick').style.transform = 'translate(0, 0)';
+        document.getElementById('joystick').style.transform = 'translate(0,0)';
     }
 
     fireWeapon() {
@@ -221,20 +187,6 @@ class FlightSimulator {
         document.getElementById('weapon').textContent = this.weapons[this.currentWeapon];
     }
 
-    // ======================
-    // Environment & HUD
-    // ======================
-
-    initEnvironment() {
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(100000, 100000),
-            new THREE.MeshLambertMaterial({ color: 0x3a5f0b })
-        );
-        ground.rotation.x = -Math.PI/2;
-        ground.receiveShadow = true;
-        this.scene.add(ground);
-    }
-
     initHUD() {
         this.hudElements = {
             speed: document.getElementById('speed'),
@@ -243,67 +195,52 @@ class FlightSimulator {
             thrust: document.getElementById('thrust'),
             weapon: document.getElementById('weapon')
         };
-        this.updateHUD();
     }
 
     updateHUD() {
         if (this.aircraft) {
-            this.hudElements.speed.textContent = Math.round(this.thrust * 2.5);
+            const speed = this.velocity.length();
+            this.hudElements.speed.textContent = Math.round(speed * 1.94384); // m/s → knots
             this.hudElements.altitude.textContent = Math.round(this.aircraft.position.y / 0.3048);
-            this.hudElements.heading.textContent = Math.round(
-                THREE.MathUtils.radToDeg(this.aircraft.rotation.y) % 360
-            );
+            const headingDeg = (Math.round(THREE.MathUtils.radToDeg(this.aircraft.rotation.y)) + 360) % 360;
+            this.hudElements.heading.textContent = headingDeg;
             this.hudElements.thrust.textContent = this.thrust;
         }
     }
-
-    // ======================
-    // Animation & Rendering
-    // ======================
 
     animate() {
         requestAnimationFrame(() => this.animate());
 
         if (this.aircraft) {
-            // Apply controls
-            this.aircraft.rotation.z = THREE.MathUtils.lerp(
-                this.aircraft.rotation.z, 
-                -this.roll * 0.3, 
-                0.1
-            );
-            this.aircraft.rotation.x = THREE.MathUtils.lerp(
-                this.aircraft.rotation.x, 
-                this.pitch * 0.3, 
-                0.1
-            );
+            // Apply roll/pitch controls
+            this.aircraft.rotation.z = THREE.MathUtils.lerp(this.aircraft.rotation.z, -this.roll * 0.5, 0.05);
+            this.aircraft.rotation.x = THREE.MathUtils.lerp(this.aircraft.rotation.x, this.pitch * 0.4, 0.05);
 
-            // Movement
-            const forwardSpeed = Math.cos(this.aircraft.rotation.x) * this.thrust * 0.5;
-            const verticalSpeed = Math.sin(this.aircraft.rotation.x) * this.thrust * 0.5;
-            
-            this.aircraft.position.z -= forwardSpeed;
-            this.aircraft.position.y += verticalSpeed;
+            // Compute forces
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.aircraft.quaternion);
+            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.aircraft.quaternion);
 
-            // Camera follow - closer view
-            const cameraOffset = new THREE.Vector3(0, 3, -10);
-            cameraOffset.applyQuaternion(this.aircraft.quaternion);
-            cameraOffset.add(this.aircraft.position);
-            
-            this.camera.position.lerp(cameraOffset, 0.1);
-            this.camera.lookAt(
-                this.aircraft.position.x,
-                this.aircraft.position.y + 1,
-                this.aircraft.position.z + 20
-            );
+            const speed = this.velocity.length();
+            const thrustForce = forward.clone().multiplyScalar(this.thrust * 500);
+            const liftForce = up.clone().multiplyScalar(0.5 * 1.225 * speed ** 2 * this.area * this.liftCoeff * Math.cos(this.aircraft.rotation.x));
+            const dragForce = this.velocity.clone().multiplyScalar(-this.dragCoeff * speed);
+            const gravity = new THREE.Vector3(0, -9.81 * this.mass, 0);
+
+            const netForce = new THREE.Vector3().add(thrustForce).add(liftForce).add(dragForce).add(gravity);
+            const acceleration = netForce.divideScalar(this.mass);
+            this.velocity.add(acceleration);
+
+            this.aircraft.position.add(this.velocity.clone().multiplyScalar(0.016)); // assume ~60fps
+
+            // Camera follow
+            const offset = new THREE.Vector3(0, 5, -15).applyQuaternion(this.aircraft.quaternion);
+            this.camera.position.lerp(this.aircraft.position.clone().add(offset), 0.1);
+            this.camera.lookAt(this.aircraft.position.clone().add(forward.multiplyScalar(50)));
         }
 
         this.renderer.render(this.scene, this.camera);
         this.updateHUD();
     }
-
-    // ======================
-    // Error Handling
-    // ======================
 
     handleFatalError(error) {
         this.debug.errors++;
@@ -312,5 +249,4 @@ class FlightSimulator {
     }
 }
 
-// Initialize simulator
 window.addEventListener('load', () => new FlightSimulator());
