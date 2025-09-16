@@ -113,32 +113,30 @@ class FlightSimulator {
     this.aircraft.quaternion.copy(this.quaternion);
     this.scene.add(this.aircraft);
 
-    // Attempt to load GLB; if it fails we keep placeholder
-    const loader = new GLTFLoader();
-    loader.load('assets/f22_raptor.glb',
-      (gltf) => {
-        try {
-          gltf.scene.scale.set(6,6,6);
-          gltf.scene.rotation.y = Math.PI;
-          // replace placeholder
-          this.scene.remove(this.aircraft);
-          this.aircraft = gltf.scene;
-          this.aircraft.position.copy(this.position);
-          this.aircraft.quaternion.copy(this.quaternion);
-          this.scene.add(this.aircraft);
-          this._setDebug('Model loaded');
-        } catch (err) {
-          console.warn('Model replace failed', err);
-          this._setDebug('Model loaded (replace failed)');
-        }
-      },
-      undefined,
-      (err) => {
-        console.warn('GLB load failed, using placeholder', err);
-        this._setDebug('Model load failed — using placeholder');
-      }
-    );
+    // compute a correct absolute URL for the GLB relative to this module file
+const modelURL = new URL('./assets/f22_raptor.glb', import.meta.url).href;
+
+loader.load(
+  modelURL,
+  (gltf) => {
+    this.aircraft = gltf.scene;
+    this.aircraft.scale.set(6,6,6);
+    this.aircraft.rotation.y = Math.PI;
+    this.scene.remove(this.placeholder); // if you used a placeholder earlier
+    this.scene.add(this.aircraft);
+    this._setDebug('Model loaded');
+  },
+  (xhr) => {
+    // optional progress logging
+    console.debug(`Model ${Math.round((xhr.loaded/xhr.total)*100)}%`);
+  },
+  (error) => {
+    console.error('GLB load failed', error);
+    this._setDebug('Model load failed — using placeholder');
+    // fallback: keep placeholder already present (no crash)
   }
+);
+
 
   _initEnvironment(){
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(50000,50000), new THREE.MeshLambertMaterial({ color:0x3a5f0b }));
