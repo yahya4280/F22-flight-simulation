@@ -1,20 +1,76 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Aircraft Simulator</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>F-22 Flight Simulator (Module)</title>
+  <!-- Use your existing CSS file (you provided style.css) -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="orientation-message">Rotate your device to landscape</div>
-  <div id="hud">
-    <div>Speed: <span id="speed">0</span></div>
-    <div>Altitude: <span id="altitude">0</span></div>
+  <!-- Orientation overlay -->
+  <div id="orientation-overlay" hidden aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.86);z-index:9999;color:#fff;font-size:20px">
+    Please rotate your device to landscape for the best experience.
   </div>
-  <div id="crosshair"></div>
-  <div id="mobile-controls"></div>
 
-  <!-- Use module import -->
-  <script type="module" src="app.js"></script>
+  <!-- HUD -->
+  <div id="hud" role="region" aria-label="Heads Up Display">
+    <div>Speed: <span id="speed">0</span> kt</div>
+    <div>Altitude: <span id="altitude">0</span> ft</div>
+    <div>Heading: <span id="heading">0</span>°</div>
+    <div>Pitch: <span id="pitch">0</span>°</div>
+    <div>Roll: <span id="roll">0</span>°</div>
+    <div>AoA: <span id="aoa">0</span>°</div>
+    <div>Thrust: <span id="thrust">50</span>%</div>
+    <div>Weapon: <span id="weapon">GUN</span></div>
+  </div>
+
+  <!-- Crosshair -->
+  <div id="crosshair" aria-hidden="true">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ff4444" stroke-width="1.6" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="7"></circle>
+      <line x1="12" y1="0" x2="12" y2="4"></line>
+      <line x1="12" y1="20" x2="12" y2="24"></line>
+      <line x1="0" y1="12" x2="4" y2="12"></line>
+      <line x1="20" y1="12" x2="24" y2="12"></line>
+    </svg>
+  </div>
+
+  <!-- Mobile controls (shown on landscape narrow screens) -->
+  <div id="mobile-controls" aria-hidden="false">
+    <div class="joystick-container" id="joy-area" aria-label="Flight joystick" role="application">
+      <div id="joystick" class="joystick" aria-hidden="true"></div>
+    </div>
+    <div class="action-buttons">
+      <div class="control fire-btn" id="fire-btn" role="button" tabindex="0">FIRE</div>
+      <div class="control weapon-btn" id="weapon-btn" role="button" tabindex="0">WEAPON</div>
+      <div class="control camera-btn" id="camera-btn" role="button" tabindex="0">CAMERA</div>
+    </div>
+    <div class="thrust-controls">
+      <div class="control thrust-up" id="thrust-up" role="button" tabindex="0">↑ THRUST</div>
+      <div class="control thrust-down" id="thrust-down" role="button" tabindex="0">↓ THRUST</div>
+    </div>
+  </div>
+
+  <!-- Debug -->
+  <div id="debug" aria-hidden="false" style="position:fixed;right:10px;top:10px;background:rgba(0,0,0,0.6);padding:8px;border-radius:6px;font-family:monospace;color:#fff;z-index:2000">
+    <div>Status: <span id="debug-status">Init</span></div>
+  </div>
+
+  <!-- Tweak panel (small parameter controls) -->
+  <div id="tweak-panel" style="position:fixed;right:10px;bottom:10px;background:rgba(0,0,0,0.7);padding:10px;border-radius:8px;color:#fff;font-size:13px;z-index:2000">
+    <div style="font-weight:700;margin-bottom:6px">TUNE</div>
+    <label style="display:block;margin-bottom:6px">Max Thrust (N): <span id="T-val">312000</span>
+      <input id="maxThrust" type="range" min="50000" max="600000" step="1000" value="312000" />
+    </label>
+    <label style="display:block;margin-bottom:6px">Control Eff.: <span id="ctl-val">1</span>
+      <input id="ctlEff" type="range" min="0.2" max="2" step="0.05" value="1" />
+    </label>
+    <div style="font-size:11px;opacity:.9">Keyboard: WASD / Arrows, Q/E thrust, Space fire, R switch weapon.</div>
+  </div>
+
+  <!-- Load the simulator as an ES module -->
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
+
