@@ -1,79 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Flight Simulator</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Aircraft Simulator</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="orientation-message">Please rotate your device to landscape</div>
+  <div id="orientation-message">Rotate your device to landscape</div>
+  <div id="hud">
+    <div>Speed: <span id="speed">0</span></div>
+    <div>Altitude: <span id="altitude">0</span></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="mobile-controls"></div>
 
-    <div id="hud">
-        <div>Speed: <span id="speed">0</span> knots</div>
-        <div>Altitude: <span id="altitude">0</span> ft</div>
-        <div>Heading: <span id="heading">0</span>°</div>
-        <div>Thrust: <span id="thrust">0</span>%</div>
-        <div>Weapon: <span id="weapon">GUN</span></div>
-    </div>
-
-    <div id="crosshair"></div>
-
-    <div id="mobile-controls">
-        <div class="joystick-container">
-            <div id="joystick" class="joystick"></div>
-        </div>
-        <div class="action-buttons">
-            <div id="fire-btn" class="control fire-btn">FIRE</div>
-            <div id="weapon-btn" class="control weapon-btn">WEAPON</div>
-        </div>
-        <div class="thrust-controls">
-            <div id="thrust-up" class="control thrust-up">THR +</div>
-            <div id="thrust-down" class="control thrust-down">THR −</div>
-        </div>
-    </div>
-
-    <div id="debug-panel" style="position:fixed;bottom:0;left:0;background:#222;color:#0f0;font-size:12px;padding:5px;z-index:200;">
-        Status: <span id="debug-status"></span> |
-        Errors: <span id="debug-errors">0</span> |
-        Warnings: <span id="debug-warnings">0</span>
-    </div>
-
-    <!-- Three.js core -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-
-    <!-- GLTFLoader -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="app.js"></script>
-
-    <script>
-    // Prevent scrolling on mobile
-    document.body.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-    }, { passive: false });
-
-    // Orientation message logic
-    function handleOrientation() {
-        const isLandscape = window.innerWidth > window.innerHeight;
-        const orientationMsg = document.getElementById('orientation-message');
-        const mobileControls = document.getElementById('mobile-controls');
-        if (window.innerWidth <= 768) {
-            if (isLandscape) {
-                orientationMsg.style.display = 'none';
-                mobileControls.style.display = 'flex';
-            } else {
-                orientationMsg.style.display = 'flex';
-                mobileControls.style.display = 'none';
-            }
-        } else {
-            orientationMsg.style.display = 'none';
-            mobileControls.style.display = 'none';
-        }
-    }
-
-    window.addEventListener('resize', handleOrientation);
-    window.addEventListener('orientationchange', handleOrientation);
-    window.addEventListener('DOMContentLoaded', handleOrientation);
-    </script>
+  <!-- Use module import -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
