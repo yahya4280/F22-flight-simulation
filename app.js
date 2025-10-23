@@ -1,3 +1,5 @@
+// app.js — module-based simulator (drop-in ready)
+// Requirements: serve via HTTP, keep assets/f22_raptor.glb in project
 
 import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.152.2/examples/jsm/loaders/GLTFLoader.js';
@@ -42,12 +44,17 @@ class FlightSimulator {
     this.camera = null;
     this.renderer = null;
     this.aircraft = null;
+    this.placeholder = null;
 
     // init systems
     this._initThree();
     this._initScene();
     this._initAircraft();
     this._initEnvironment();
+
+    // Controls/UI rely on index.html provided by you.
+    // We'll still run initControls and initUI, but those are defensive:
+    // they will NOT recreate the HUD/controls that your index.html already provides.
     this._initControls();
     this._initUI();
 
@@ -68,7 +75,10 @@ class FlightSimulator {
     this.renderer = new THREE.WebGLRenderer({ antialias:true });
     this.renderer.setPixelRatio(window.devicePixelRatio || 1);
     this.renderer.setSize(innerWidth, innerHeight);
-    document.body.appendChild(this.renderer.domElement);
+    // Append renderer DOM only once
+    if (!document.body.contains(this.renderer.domElement)) {
+      document.body.appendChild(this.renderer.domElement);
+    }
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     const sun = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -122,17 +132,24 @@ class FlightSimulator {
     loader.load(
       modelURL,
       (gltf) => {
-        this.aircraft = gltf.scene;
-        this.aircraft.scale.set(6,6,6);
-        this.aircraft.rotation.y = Math.PI;
-        // remove placeholder if present
-        if (this.placeholder && this.scene) this.scene.remove(this.placeholder);
-        this.scene.add(this.aircraft);
-        this._setDebug('Model loaded');
+        // Successful load: use the loaded scene as the aircraft
+        try {
+          this.aircraft = gltf.scene;
+          // match sizing/transform so it appears correctly in the world
+          this.aircraft.scale.set(6,6,6);
+          this.aircraft.rotation.y = Math.PI;
+          // remove placeholder if present
+          if (this.placeholder && this.scene) this.scene.remove(this.placeholder);
+          this.scene.add(this.aircraft);
+          this._setDebug('Model loaded');
+        } catch (e) {
+          console.error('Error applying GLTF', e);
+          this._setDebug('Model load error — using placeholder');
+        }
       },
       (xhr) => {
         // optional progress logging (xhr.total can be 0 on some servers)
-        if (xhr.total) {
+        if (xhr && xhr.total) {
           console.debug(`Model ${Math.round((xhr.loaded/xhr.total)*100)}%`);
         }
       },
@@ -161,18 +178,29 @@ class FlightSimulator {
   // Controls
   // -------------------------
   _initControls(){
-    // joystick pointer handling
+    // joystick pointer handling — index.html already provides #joy-area and #joystick
     const joyArea = document.getElementById('joy-area');
     const knob = document.getElementById('joystick');
     if (joyArea && knob) {
-      const rectSize = 96;
+      const rectSize = Math.max(96, joyArea.clientWidth || 96);
+      // center knob visually
       const centerOffset = (rectSize - knob.offsetWidth)/2;
       knob.style.transform = `translate(${centerOffset}px,${centerOffset}px)`;
 
       let pointerId = null;
-      joyArea.addEventListener('pointerdown', (e) => { joyArea.setPointerCapture(e.pointerId); pointerId = e.pointerId; this._joyMove(e, joyArea, knob); });
+      joyArea.addEventListener('pointerdown', (e) => {
+        try { joyArea.setPointerCapture(e.pointerId); } catch (err) {}
+        pointerId = e.pointerId;
+        this._joyMove(e, joyArea, knob);
+      });
       joyArea.addEventListener('pointermove', (e) => { if (pointerId===e.pointerId) this._joyMove(e, joyArea, knob); });
-      const release = (e) => { if (pointerId !== null && e.pointerId!==pointerId) return; pointerId = null; knob.style.transform = `translate(${centerOffset}px,${centerOffset}px)`; this.aileron=0; this.elevator=0; };
+      const release = (e) => {
+        if (pointerId !== null && e.pointerId!==pointerId) return;
+        pointerId = null;
+        knob.style.transform = `translate(${centerOffset}px,${centerOffset}px)`;
+        this.aileron = 0;
+        this.elevator = 0;
+      };
       joyArea.addEventListener('pointerup', release);
       joyArea.addEventListener('pointercancel', release);
       joyArea.addEventListener('pointerleave', release);
@@ -207,18 +235,50 @@ class FlightSimulator {
       if (['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)) this.aileron = 0;
     });
 
-    // tune panel
+    // tune panel inputs (index.html provides them)
     const maxT = document.getElementById('maxThrust');
     const ctl = document.getElementById('ctlEff');
     if (maxT) {
-      maxT.addEventListener('input', (ev) => { this.params.maxThrust = +ev.target.value; document.getElementById('T-val').textContent = Math.round(this.params.maxThrust); });
+      maxT.addEventListener('input', (ev) => {
+        this.params.maxThrust = +ev.target.value;
+        const tval = document.getElementById('T-val');
+        if (tval) tval.textContent = Math.round(this.params.maxThrust);
+      });
     }
     if (ctl) {
-      ctl.addEventListener('input', (ev) => { this.params.controlEffectiveness = +ev.target.value; document.getElementById('ctl-val').textContent = ev.target.value; });
+      ctl.addEventListener('input', (ev) => {
+        this.params.controlEffectiveness = +ev.target.value;
+        const cval = document.getElementById('ctl-val');
+        if (cval) cval.textContent = ev.target.value;
+      });
     }
 
     // orientation overlay logic (robust; hides overlay on desktop Chrome/Windows)
-    const overlay = document.getElementById('orientation-overlay');
+    this._setupOrientationOverlay();
+  }
+
+  _setupOrientationOverlay() {
+    // If the index.html doesn't include orientation-overlay, we create a minimal one but keep hidden on desktop.
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.right = '0';
+      overlay.style.bottom = '0';
+      overlay.style.background = 'rgba(0,0,0,0.85)';
+      overlay.style.color = '#fff';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.fontSize = '20px';
+      overlay.style.zIndex = '2000';
+      overlay.textContent = 'Please rotate your device to landscape';
+      overlay.hidden = true;
+      document.body.appendChild(overlay);
+    }
 
     // determine whether the device is likely a touch/mobile device
     const isTouchDevice = (() => {
@@ -232,12 +292,10 @@ class FlightSimulator {
     })();
 
     const checkOrientation = () => {
-      // If not a touch-capable device (desktop/laptop), always hide the overlay.
+      // Hide overlay on non-touch desktop (Chrome on Windows etc.)
       if (!isTouchDevice) {
-        if (overlay) {
-          overlay.hidden = true;
-          overlay.setAttribute('aria-hidden', 'true');
-        }
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
         return;
       }
 
@@ -256,10 +314,8 @@ class FlightSimulator {
       // Treat perfectly square viewports as landscape (don't ask to rotate).
       if (window.innerHeight === window.innerWidth) portrait = false;
 
-      if (overlay) {
-        overlay.hidden = !portrait;
-        overlay.setAttribute('aria-hidden', String(!portrait));
-      }
+      overlay.hidden = !portrait;
+      overlay.setAttribute('aria-hidden', String(!portrait));
     };
 
     window.addEventListener('resize', checkOrientation, { passive:true });
@@ -284,6 +340,52 @@ class FlightSimulator {
   // -------------------------
   // UI helpers / weapons
   // -------------------------
+  _initUI() {
+    // Defensive: ensure minimal debug/status elements exist to avoid runtime console errors.
+    const dbg = document.getElementById('debug-status');
+    if (!dbg) {
+      const debugWrap = document.createElement('div');
+      debugWrap.id = 'debug';
+      debugWrap.style.position = 'fixed';
+      debugWrap.style.right = '10px';
+      debugWrap.style.top = '10px';
+      debugWrap.style.background = 'rgba(0,0,0,0.6)';
+      debugWrap.style.padding = '8px';
+      debugWrap.style.borderRadius = '6px';
+      debugWrap.style.fontFamily = 'monospace';
+      debugWrap.style.color = '#fff';
+      debugWrap.style.zIndex = '2000';
+      debugWrap.innerHTML = `<div>Status: <span id="debug-status">Init</span></div>`;
+      document.body.appendChild(debugWrap);
+    }
+
+    // If HUD exists in your index.html that's used. If not, create minimal placeholders.
+    if (!document.getElementById('hud')) {
+      const hud = document.createElement('div');
+      hud.id = 'hud';
+      hud.style.position = 'fixed';
+      hud.style.left = '8px';
+      hud.style.top = '8px';
+      hud.style.color = '#fff';
+      hud.style.fontFamily = 'monospace';
+      hud.style.fontSize = '12px';
+      hud.style.zIndex = '1000';
+      hud.innerHTML = `
+        <div>Speed: <span id="speed">--</span> kt</div>
+        <div>Alt: <span id="altitude">--</span> ft</div>
+        <div>Heading: <span id="heading">--</span>°</div>
+        <div>Pitch: <span id="pitch">--</span>°</div>
+        <div>Roll: <span id="roll">--</span>°</div>
+        <div>AoA: <span id="aoa">--</span>°</div>
+        <div>Thrust: <span id="thrust">--</span>%</div>
+        <div>Weapon: <span id="weapon">--</span></div>
+      `;
+      document.body.appendChild(hud);
+    }
+
+    // The rest of controls you provided in index.html are preferred; do not automatically create duplicates.
+  }
+
   _fireWeapon() {
     const el = document.getElementById('weapon');
     if (!el) return;
@@ -291,9 +393,9 @@ class FlightSimulator {
     el.textContent = 'FIRING';
     setTimeout(()=> el.textContent = prev, 200);
   }
-  _switchWeapon() { this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length; }
+  _switchWeapon() { this.currentWeapon = (this.currentWeapon + 1) % this.weapons.length; const wEl = document.getElementById('weapon'); if (wEl) wEl.textContent = this.weapons[this.currentWeapon]; }
   _toggleCamera() { this.cameraMode = (this.cameraMode==='chase') ? 'third' : 'chase'; }
-  _adjustThrust(d) { this.thrustPercent = THREE.MathUtils.clamp((this.thrustPercent||50) + d, 0, 100); document.getElementById('thrust').textContent = Math.round(this.thrustPercent); }
+  _adjustThrust(d) { this.thrustPercent = THREE.MathUtils.clamp((this.thrustPercent||50) + d, 0, 100); const t = document.getElementById('thrust'); if (t) t.textContent = Math.round(this.thrustPercent); }
   _setDebug(text) { const dbg = document.getElementById('debug-status'); if (dbg) dbg.textContent = text; }
 
   // -------------------------
@@ -409,17 +511,25 @@ class FlightSimulator {
 
   updateHUD(aeroInfo) {
     const v = this.velocity.length();
-    document.getElementById('speed').textContent = Math.round(v * 1.94384);
-    document.getElementById('altitude').textContent = Math.round(this.position.y / 0.3048);
+    const speedEl = document.getElementById('speed');
+    if (speedEl) speedEl.textContent = Math.round(v * 1.94384);
+    const altEl = document.getElementById('altitude');
+    if (altEl) altEl.textContent = Math.round(this.position.y / 0.3048);
     const euler = new THREE.Euler().setFromQuaternion(this.quaternion, 'ZYX');
     const yawDeg = (THREE.MathUtils.radToDeg(euler.y) + 360) % 360;
-    document.getElementById('heading').textContent = Math.round(yawDeg);
-    document.getElementById('pitch').textContent = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
-    document.getElementById('roll').textContent = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
-    document.getElementById('aoa').textContent = (THREE.MathUtils.radToDeg(aeroInfo.aoa)).toFixed(1);
-    document.getElementById('thrust').textContent = Math.round(this.thrustPercent);
-    document.getElementById('weapon').textContent = this.weapons[this.currentWeapon];
-    this._setDebug(`V=${Math.round(v)} m/s  AoA=${(THREE.MathUtils.radToDeg(aeroInfo.aoa)).toFixed(1)}°  Thrust=${Math.round(this.thrustPercent)}%`);
+    const hdgEl = document.getElementById('heading');
+    if (hdgEl) hdgEl.textContent = Math.round(yawDeg);
+    const pEl = document.getElementById('pitch');
+    if (pEl) pEl.textContent = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+    const rEl = document.getElementById('roll');
+    if (rEl) rEl.textContent = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+    const aoaEl = document.getElementById('aoa');
+    if (aoaEl && aeroInfo && typeof aeroInfo.aoa === 'number') aoaEl.textContent = (THREE.MathUtils.radToDeg(aeroInfo.aoa)).toFixed(1);
+    const tEl = document.getElementById('thrust');
+    if (tEl) tEl.textContent = Math.round(this.thrustPercent);
+    const wEl = document.getElementById('weapon');
+    if (wEl) wEl.textContent = this.weapons[this.currentWeapon];
+    this._setDebug(`V=${Math.round(v)} m/s  AoA=${(aeroInfo && aeroInfo.aoa) ? THREE.MathUtils.radToDeg(aeroInfo.aoa).toFixed(1) : '--'}°  Thrust=${Math.round(this.thrustPercent)}%`);
   }
 
   // -------------------------
@@ -444,6 +554,6 @@ window.addEventListener('load', () => {
     window.sim = new FlightSimulator();
   } catch (err) {
     console.error('Simulator failed', err);
-    alert('Simulator error: ' + err.message);
+    alert('Simulator error: ' + (err && err.message ? err.message : String(err)));
   }
 });
