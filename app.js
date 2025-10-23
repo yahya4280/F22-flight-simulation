@@ -114,29 +114,37 @@ class FlightSimulator {
     this.scene.add(this.aircraft);
 
     // compute a correct absolute URL for the GLB relative to this module file
-const modelURL = new URL('./assets/f22_raptor.glb', import.meta.url).href;
+    const modelURL = new URL('./assets/f22_raptor.glb', import.meta.url).href;
 
-loader.load(
-  modelURL,
-  (gltf) => {
-    this.aircraft = gltf.scene;
-    this.aircraft.scale.set(6,6,6);
-    this.aircraft.rotation.y = Math.PI;
-    this.scene.remove(this.placeholder); // if you used a placeholder earlier
-    this.scene.add(this.aircraft);
-    this._setDebug('Model loaded');
-  },
-  (xhr) => {
-    // optional progress logging
-    console.debug(`Model ${Math.round((xhr.loaded/xhr.total)*100)}%`);
-  },
-  (error) => {
-    console.error('GLB load failed', error);
-    this._setDebug('Model load failed — using placeholder');
-    // fallback: keep placeholder already present (no crash)
+    // create loader and attempt to load model
+    const loader = new GLTFLoader();
+    // keep a placeholder reference so we can remove it if model loads
+    this.placeholder = this.aircraft;
+
+    loader.load(
+      modelURL,
+      (gltf) => {
+        this.aircraft = gltf.scene;
+        this.aircraft.scale.set(6,6,6);
+        this.aircraft.rotation.y = Math.PI;
+        // remove placeholder if present
+        if (this.placeholder && this.scene) this.scene.remove(this.placeholder);
+        this.scene.add(this.aircraft);
+        this._setDebug('Model loaded');
+      },
+      (xhr) => {
+        // optional progress logging (xhr.total can be 0 on some servers)
+        if (xhr.total) {
+          console.debug(`Model ${Math.round((xhr.loaded/xhr.total)*100)}%`);
+        }
+      },
+      (error) => {
+        console.error('GLB load failed', error);
+        this._setDebug('Model load failed — using placeholder');
+        // fallback: keep placeholder already present (no crash)
+      }
+    );
   }
-);
-
 
   _initEnvironment(){
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(50000,50000), new THREE.MeshLambertMaterial({ color:0x3a5f0b }));
@@ -211,11 +219,28 @@ loader.load(
       ctl.addEventListener('input', (ev) => { this.params.controlEffectiveness = +ev.target.value; document.getElementById('ctl-val').textContent = ev.target.value; });
     }
 
-    // orientation overlay logic
+    // orientation overlay logic (robust)
     const overlay = document.getElementById('orientation-overlay');
     const checkOrientation = () => {
-      const portrait = window.matchMedia('(orientation: portrait)').matches;
-      if (overlay) { overlay.hidden = !portrait; overlay.setAttribute('aria-hidden', String(!portrait)); }
+      // Prefer matchMedia when available, but fall back to comparing window dimensions.
+      let portrait = false;
+      if (window.matchMedia) {
+        try {
+          portrait = window.matchMedia('(orientation: portrait)').matches;
+        } catch (e) {
+          portrait = window.innerHeight > window.innerWidth;
+        }
+      } else {
+        portrait = window.innerHeight > window.innerWidth;
+      }
+
+      // Treat perfectly square viewports as landscape (don't ask to rotate).
+      if (window.innerHeight === window.innerWidth) portrait = false;
+
+      if (overlay) {
+        overlay.hidden = !portrait;
+        overlay.setAttribute('aria-hidden', String(!portrait));
+      }
     };
     window.addEventListener('resize', checkOrientation, { passive:true });
     window.addEventListener('orientationchange', checkOrientation);
