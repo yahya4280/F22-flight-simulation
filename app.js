@@ -1,5 +1,3 @@
-// app.js — module-based simulator (drop-in ready)
-// Requirements: serve via HTTP, keep assets/f22_raptor.glb in project
 
 import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.152.2/examples/jsm/loaders/GLTFLoader.js';
@@ -219,10 +217,31 @@ class FlightSimulator {
       ctl.addEventListener('input', (ev) => { this.params.controlEffectiveness = +ev.target.value; document.getElementById('ctl-val').textContent = ev.target.value; });
     }
 
-    // orientation overlay logic (robust)
+    // orientation overlay logic (robust; hides overlay on desktop Chrome/Windows)
     const overlay = document.getElementById('orientation-overlay');
+
+    // determine whether the device is likely a touch/mobile device
+    const isTouchDevice = (() => {
+      try {
+        return (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+               ('ontouchstart' in window) ||
+               (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      } catch (e) {
+        return false;
+      }
+    })();
+
     const checkOrientation = () => {
-      // Prefer matchMedia when available, but fall back to comparing window dimensions.
+      // If not a touch-capable device (desktop/laptop), always hide the overlay.
+      if (!isTouchDevice) {
+        if (overlay) {
+          overlay.hidden = true;
+          overlay.setAttribute('aria-hidden', 'true');
+        }
+        return;
+      }
+
+      // For touch devices, prefer matchMedia but fall back to comparing dimensions.
       let portrait = false;
       if (window.matchMedia) {
         try {
@@ -242,6 +261,7 @@ class FlightSimulator {
         overlay.setAttribute('aria-hidden', String(!portrait));
       }
     };
+
     window.addEventListener('resize', checkOrientation, { passive:true });
     window.addEventListener('orientationchange', checkOrientation);
     checkOrientation();
